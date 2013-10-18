@@ -35,7 +35,7 @@ const (
 
 	WindChange    = 2000                 // The maximum change in windspeed per second, in milliseconds
 	MaxWind       = 3                    // Maximum windspeed in seconds before wind is reversed at half speed
-	SpawnInterval = 0.01                 // How often particles are spawned, in millisecons
+	SpawnInterval = 0.01                 // The period of particle spawning, in seconds
 	RunningTime   = (MaxLife / 1000) * 5 // The total running time of the animation
 )
 
@@ -46,7 +46,7 @@ var (
 
 	Pts    [MaxPts]Pt           // The pool of particles
 	numPts int                  // The maximum index in the pool that currently contains a particle
-	minPt  int                  // The minimum index in the pool that currently contains a particle, or zero.
+	minPt  int                  // The minimum index in the pool that currently contains a particle. Or zero.
 	seed   uint32     = 1234569 // Initial PRNG seed
 
 	frameInitT time.Time // Reused variable for timing frames
@@ -54,7 +54,7 @@ var (
 	frameDur   float64   // Reused variable for storing the duration of the last frame
 	spwnTmr    float64   // Timer for particle spawning
 	cleanupTmr float64   // Timer for cleaning up the particle array
-	runTmr     float64   // Timer of total running timer
+	runTmr     float64   // Timer of total running time
 
 	frames   [RunningTime * 1000]float64 // Array for storing the length of each frame
 	curFrame uint64                      // The current number of frames that have elapsed

@@ -53,15 +53,44 @@ int numPts = 0;
 int minPt = 0;       
 uint32_t seed = 1234569;
 
+struct Vertex {
+	GLfloat pos[3];
+	GLfloat normal[3];
+};
+
+struct Vertex Vertices[ 24 ];
+uint32_t curVertex = 0;
+uint32_t curNormal = 0;
+
+void newVertex(x,y,z){
+	struct Vertex thisVertex;
+	thisVertex.pos[0] = x;
+	thisVertex.pos[1] = y;
+	thisVertex.pos[2] = z;
+	Vertices[curVertex] = thisVertex;
+	curVertex++;
+}
+
+void newNormal(nx,ny,nz){
+	for (int i = curNormal*4; i < (curNormal+1)*4; i++){
+		Vertices[i].normal[0] = nx;
+		Vertices[i].normal[1] = ny;
+		Vertices[i].normal[2] = nz;
+	}
+	curNormal++;	
+}
+
+
+GLuint gVBO = 0;
+
 double windX = 0; 
 double windY = 0;
 double windZ = 0;
 double grav = 0.5;
 
-float ambient[4] = {0.5, 0.5, 0.5, 1};
-float diffuse[4] = {1, 1, 1, 1};
+float ambient[4] = {0.8, 0.05, 0.1, 1};
+float diffuse[4] = {1.0, 1.0, 1.0, 1};
 float lightPos[4] = {MIN_X + (MAX_X-MIN_X)/2, MAX_Y, MIN_DEPTH, 0};
-
 
 uint32_t xorRand() {
 	seed ^= seed << 13;
@@ -190,53 +219,72 @@ void initScene() {
 	return;
 }
 
-void drawPt(struct Pt *pt) {
-	glMatrixMode(GL_MODELVIEW);
-	glPopMatrix();
-	glPushMatrix();
-	glTranslatef(pt->X, pt->Y, -pt->Z);
-	glScalef(pt->R * 2, pt->R*2, pt->R*2);
-	glColor4f(0.7, 0.9, 0.2, 1);
+bool loadCubeToGPU(){
+	newVertex(-1, -1, 1);
+	newVertex(1, -1, 1);
+	newVertex(1, 1, 1);
+	newVertex(-1, 1, 1);
+	newNormal(0, 0, 1);
 
-	glBegin(GL_QUADS);
+	newVertex(-1, -1, -1);
+	newVertex(-1, 1, -1);
+	newVertex(1, 1, -1);
+	newVertex(1, -1, -1);
+	newNormal(0, 0, -1);
 
-	glNormal3f(0, 0, 1);
-	glVertex3f(-1, -1, 1);
-	glVertex3f(1, -1, 1);
-	glVertex3f(1, 1, 1);
-	glVertex3f(-1, 1, 1);
+	newVertex(-1, 1, -1);
+	newVertex(-1, 1, 1);
+	newVertex(1, 1, 1);
+	newVertex(1, 1, -1);
+	newNormal(0, 1, 0);
 
-	glNormal3f(0, 0, -1);
-	glVertex3f(-1, -1, -1);
-	glVertex3f(-1, 1, -1);
-	glVertex3f(1, 1, -1);
-	glVertex3f(1, -1, -1);
+	newVertex(-1, -1, -1);
+	newVertex(1, -1, -1);
+	newVertex(1, -1, 1);
+	newVertex(-1, -1, 1);
+	newNormal(0, -1, 0);
 
-	glNormal3f(0, 1, 0);
-	glVertex3f(-1, 1, -1);
-	glVertex3f(-1, 1, 1);
-	glVertex3f(1, 1, 1);
-	glVertex3f(1, 1, -1);
+	newVertex(1, -1, -1);
+	newVertex(1, 1, -1);
+	newVertex(1, 1, 1);
+	newVertex(1, -1, 1);
+	newNormal(1, 0, 0);
 
-	glNormal3f(0, -1, 0);
-	glVertex3f(-1, -1, -1);
-	glVertex3f(1, -1, -1);
-	glVertex3f(1, -1, 1);
-	glVertex3f(-1, -1, 1);
+	newVertex(-1, -1, -1);
+	newVertex(-1, -1, 1);
+	newVertex(-1, 1, 1);
+	newVertex(-1, 1, -1);
+	newNormal(-1, 0, 0);
 
-	glNormal3f(1, 0, 0);
-	glVertex3f(1, -1, -1);
-	glVertex3f(1, 1, -1);
-	glVertex3f(1, 1, 1);
-	glVertex3f(1, -1, 1);
+	glGenBuffers( 1, &gVBO );
+	glBindBuffer( GL_ARRAY_BUFFER, gVBO );
+	glBufferData( GL_ARRAY_BUFFER, 24 * sizeof(struct Vertex), Vertices, GL_STATIC_DRAW );
 
-	glNormal3f(-1, 0, 0);
-	glVertex3f(-1, -1, -1);
-	glVertex3f(-1, -1, 1);
-	glVertex3f(-1, 1, 1);
-	glVertex3f(-1, 1, -1);
+	return true;
+}
 
-	glEnd();
+void renderPts(){
+	glEnableClientState( GL_VERTEX_ARRAY );
+	glEnableClientState( GL_NORMAL_ARRAY );	
+	glVertexPointer( 3, GL_FLOAT, 24, NULL );	
+	glNormalPointer( GL_FLOAT, 12, 0);	
+
+	for (int i = minPt; i <= numPts; i++) {
+		if (Pts[i].is == false) {
+			continue;
+		}
+		struct Pt *pt = &Pts[i];
+		glMatrixMode(GL_MODELVIEW);
+		glPopMatrix();
+		glPushMatrix();
+		glTranslatef(pt->X, pt->Y, -pt->Z);
+		glScalef(pt->R * 2, pt->R*2, pt->R*2);
+		glColor4f(0.7, 0.9, 0.2, 1);
+		glDrawArrays( GL_QUADS, 0, 24 );
+		
+	}
+	glDisableClientState( GL_NORMAL_ARRAY );
+	glDisableClientState( GL_VERTEX_ARRAY );
 }
 
 void error_callback(int error, const char* description){
@@ -248,7 +296,9 @@ int main(int argc, char* argv[]) {
 	if( !glfwInit() ){
 		exit(EXIT_FAILURE);
 	}
-	
+	glfwWindowHint(GLFW_SAMPLES, 2);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, TITLE, NULL, NULL); 
 	if (!window){
 		glfwTerminate();
@@ -257,6 +307,16 @@ int main(int argc, char* argv[]) {
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(1);
 	initScene();
+	GLenum glewError = glewInit();
+	if( glewError != GLEW_OK ){
+		printf( "Error initializing GLEW! %s\n", glewGetErrorString( glewError ) );
+		return false;
+	}
+	if( !GLEW_VERSION_2_1 ){
+		printf( "OpenGL 2.1 not supported!\n" );
+		return false;
+	}
+	loadCubeToGPU();
 	while (!glfwWindowShouldClose(window)){
 		initT = glfwGetTime();
 		movPts(frameDur);
@@ -271,14 +331,12 @@ int main(int argc, char* argv[]) {
 		}
 		checkColls();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		for (int i = minPt; i <= numPts; i++) {
-			if (Pts[i].is == false) {
-				continue;
-			}
-			drawPt(&Pts[i]);
-		}
+
+		renderPts();
+
 		glfwSwapBuffers(window);
 		glfwPollEvents();
+
 		endT = glfwGetTime();
 		frameDur = endT-initT; 
 		spwnTmr += frameDur;

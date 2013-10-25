@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	//"github.com/go-gl/gl"
 	gl "github.com/chsc/gogl/gl21"
 	glfw "github.com/go-gl/glfw3"
 	"math"
@@ -37,19 +36,19 @@ const (
 
 	WindChange    = 2000                 // The maximum change in windspeed per second, in milliseconds
 	MaxWind       = 3                    // Maximum windspeed in seconds before wind is reversed at half speed
-	SpawnInterval = 0.01                 // How often particles are spawned, in millisecons
+	SpawnInterval = 0.01                 // How often particles are spawned, in seconds
 	RunningTime   = (MaxLife / 1000) * 5 // The total running time of the animation
 )
 
 var (
-	ambient  []gl.Float = []gl.Float{0.8, 0.05, 0.1, 1}                        // Ambient light
+	ambient  []gl.Float = []gl.Float{0.8, 0.05, 0.1, 1}                       // Ambient light
 	diffuse  []gl.Float = []gl.Float{1, 1, 1, 1}                              // Diffuse light
 	lightPos []gl.Float = []gl.Float{MinX + (MaxX-MinX)/2, MaxY, MinDepth, 0} // Position of the lightsource
 
-	Pts    [MaxPts]Pt           // The pool of particles
-	numPts int                  // The maximum index in the pool that currently contains a particle
-	minPt  int                  // The minimum index in the pool that currently contains a particle, or zero.
-	seed   uint32     = 1234569 // Initial PRNG seed
+	Pts   [MaxPts]Pt           // The pool of particles
+	maxPt int                  // The maximum index in the pool that currently contains a particle
+	minPt int                  // The minimum index in the pool that currently contains a particle, or zero.
+	seed  uint32     = 1234569 // Initial PRNG seed
 
 	frameInitT time.Time // Reused variable for timing frames
 	frameEndT  time.Time // Reused variable for timing frames
@@ -66,12 +65,12 @@ var (
 	windZ float64 = 0
 	grav  float64 = 0.5
 
-	gVBO gl.Uint 
-	Vertices [24]Vertex
-	curVertex uint32
+	gVBO       gl.Uint
+	Vertices   [24]Vertex
+	curVertex  uint32
 	curNormalX gl.Float
 	curNormalY gl.Float
-	curNormalZ gl.Float	
+	curNormalZ gl.Float
 )
 
 func errorCallback(err glfw.ErrorCode, desc string) {
@@ -84,21 +83,19 @@ type Pt struct {
 }
 
 type Vertex struct {
-	pos [3]gl.Float
+	pos    [3]gl.Float
 	normal [3]gl.Float
 }
 
-
-func newVertex(x,y,z gl.Float){
-	newPos := [3]gl.Float{x,y,z}
-	newNormal := [3]gl.Float{curNormalX,curNormalY,curNormalZ}
+func newVertex(x, y, z gl.Float) {
+	newPos := [3]gl.Float{x, y, z}
+	newNormal := [3]gl.Float{curNormalX, curNormalY, curNormalZ}
 	thisVertex := Vertex{pos: newPos, normal: newNormal}
 	Vertices[curVertex] = thisVertex
-	fmt.Println(Vertices[curVertex])
 	curVertex++
 }
 
-func newNormal(nx,ny,nz gl.Float){
+func newNormal(nx, ny, nz gl.Float) {
 	curNormalX = nx
 	curNormalY = ny
 	curNormalZ = nz
@@ -115,16 +112,16 @@ func spwnPts(secs float64) {
 	num := uint32(secs * PointsPerSec)
 	var i uint32 = 0
 	for ; i < num; i++ {
-		Pts[numPts] = Pt{X: 0 + float64(rand()%StartRange) - StartRange/2, Y: StartY,
+		Pts[maxPt] = Pt{X: 0 + float64(rand()%StartRange) - StartRange/2, Y: StartY,
 			Z: StartDepth + float64(rand()%StartRange) - StartRange/2, VX: float64(rand() % MaxInitVel),
 			VY: float64(rand() % MaxInitVel), VZ: float64(rand() % MaxInitVel),
 			R: float64(rand()%(MaxScale*100)) / 200, Life: float64(rand()%MaxLife) / 1000, is: true}
-		numPts++
+		maxPt++
 	}
 }
 
 func movPts(secs float64) {
-	for i := minPt; i <= numPts; i++ {
+	for i := minPt; i <= maxPt; i++ {
 		if Pts[i].is == false {
 			continue
 		}
@@ -143,7 +140,7 @@ func movPts(secs float64) {
 }
 
 func checkColls() {
-	for i := minPt; i <= numPts; i++ {
+	for i := minPt; i <= maxPt; i++ {
 		if Pts[i].is == false {
 			continue
 		}
@@ -175,9 +172,9 @@ func checkColls() {
 }
 
 func cleanupPtPool() { // move minPt forward to the first index in the point array that contains a valid point
-	for i := 0; i <= numPts; i++ {
+	for i := minPt; i <= maxPt; i++ {
 		if Pts[i].is == true {
-			minPt += i // After 2*LifeTime, the minPt should be at around (LifeTime in seconds)*PointsPerSec
+			minPt = i // After 2*LifeTime, the minPt should be at around (LifeTime in seconds)*PointsPerSec
 			break
 		}
 	}
@@ -209,9 +206,9 @@ func main() {
 		panic("Can't init glfw!")
 	}
 	defer glfw.Terminate()
-	glfw.WindowHint(glfw.Samples, 2);
-	glfw.WindowHint(glfw.ContextVersionMajor, 2);
-	glfw.WindowHint(glfw.ContextVersionMinor, 1);
+	glfw.WindowHint(glfw.Samples, 2)
+	glfw.WindowHint(glfw.ContextVersionMajor, 2)
+	glfw.WindowHint(glfw.ContextVersionMinor, 1)
 	window, err := glfw.CreateWindow(Width, Height, Title, nil, nil)
 	if err != nil {
 		panic(err)
@@ -268,10 +265,10 @@ func main() {
 			fmt.Println("The standard deviation was:", sd, "frames per second.")
 			break
 		}
-	
+
 	}
-	gl.DisableClientState( gl.NORMAL_ARRAY );
-	gl.DisableClientState( gl.VERTEX_ARRAY );
+	gl.DisableClientState(gl.NORMAL_ARRAY)
+	gl.DisableClientState(gl.VERTEX_ARRAY)
 }
 
 func initScene() {
@@ -299,7 +296,7 @@ func initScene() {
 	return
 }
 
-func loadCubeToGPU(){
+func loadCubeToGPU() {
 	newNormal(0, 0, 1)
 	newVertex(-1, -1, 1)
 	newVertex(1, -1, 1)
@@ -336,27 +333,27 @@ func loadCubeToGPU(){
 	newVertex(-1, 1, 1)
 	newVertex(-1, 1, -1)
 
-	gl.GenBuffers( 1, &gVBO )
-	gl.BindBuffer( gl.ARRAY_BUFFER, gVBO )
-	gl.BufferData( gl.ARRAY_BUFFER, gl.Sizeiptr(unsafe.Sizeof(Vertex{})*24), gl.Pointer(&Vertices[0]), gl.STATIC_DRAW )
-	
-	gl.EnableClientState( gl.VERTEX_ARRAY );
-	gl.EnableClientState( gl.NORMAL_ARRAY );	
-	gl.VertexPointer( 3, gl.FLOAT, 24, nil );	
-	gl.NormalPointer( gl.FLOAT, 12, nil);	
+	gl.GenBuffers(1, &gVBO)
+	gl.BindBuffer(gl.ARRAY_BUFFER, gVBO)
+	gl.BufferData(gl.ARRAY_BUFFER, gl.Sizeiptr(unsafe.Sizeof(Vertex{})*24), gl.Pointer(&Vertices[0]), gl.STATIC_DRAW)
+
+	gl.EnableClientState(gl.VERTEX_ARRAY)
+	gl.EnableClientState(gl.NORMAL_ARRAY)
+	gl.VertexPointer(3, gl.FLOAT, 24, nil)
+	gl.NormalPointer(gl.FLOAT, 12, nil)
 }
 
-func renderPts(){
-	gl.MatrixMode(gl.MODELVIEW);	
-	for i := minPt; i <= numPts; i++ {
-		if (Pts[i].is == false) {
+func renderPts() {
+	gl.MatrixMode(gl.MODELVIEW)
+	for i := minPt; i <= maxPt; i++ {
+		if Pts[i].is == false {
 			continue
 		}
-		pt := &Pts[i];
-		gl.PopMatrix();
-		gl.PushMatrix();
-		gl.Translatef(gl.Float((*pt).X), gl.Float((*pt).Y), -gl.Float((*pt).Z));
-		gl.Scalef(gl.Float((*pt).R * 2), gl.Float((*pt).R*2), gl.Float((*pt).R*2));
-		gl.DrawArrays( gl.QUADS, 0, 24 );	
+		pt := &Pts[i]
+		gl.PopMatrix()
+		gl.PushMatrix()
+		gl.Translatef(gl.Float((*pt).X), gl.Float((*pt).Y), -gl.Float((*pt).Z))
+		gl.Scalef(gl.Float((*pt).R*2), gl.Float((*pt).R*2), gl.Float((*pt).R*2))
+		gl.DrawArrays(gl.QUADS, 0, 24)
 	}
 }

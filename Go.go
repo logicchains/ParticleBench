@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-gl/gl"
+	//"github.com/go-gl/gl"
+	gl "github.com/chsc/gogl/gl21"
 	glfw "github.com/go-gl/glfw3"
 	"math"
 	"os"
 	"runtime/pprof"
 	"time"
+	"unsafe"
 )
 
 const (
@@ -35,18 +37,18 @@ const (
 
 	WindChange    = 2000                 // The maximum change in windspeed per second, in milliseconds
 	MaxWind       = 3                    // Maximum windspeed in seconds before wind is reversed at half speed
-	SpawnInterval = 0.01                 // The period of particle spawning, in seconds
+	SpawnInterval = 0.01                 // How often particles are spawned, in millisecons
 	RunningTime   = (MaxLife / 1000) * 5 // The total running time of the animation
 )
 
 var (
-	ambient  []float32 = []float32{0.5, 0.5, 0.5, 1}                        // Ambient light
-	diffuse  []float32 = []float32{1, 1, 1, 1}                              // Diffuse light
-	lightPos []float32 = []float32{MinX + (MaxX-MinX)/2, MaxY, MinDepth, 0} // Position of the lightsource
+	ambient  []gl.Float = []gl.Float{0.8, 0.05, 0.1, 1}                        // Ambient light
+	diffuse  []gl.Float = []gl.Float{1, 1, 1, 1}                              // Diffuse light
+	lightPos []gl.Float = []gl.Float{MinX + (MaxX-MinX)/2, MaxY, MinDepth, 0} // Position of the lightsource
 
 	Pts    [MaxPts]Pt           // The pool of particles
 	numPts int                  // The maximum index in the pool that currently contains a particle
-	minPt  int                  // The minimum index in the pool that currently contains a particle. Or zero.
+	minPt  int                  // The minimum index in the pool that currently contains a particle, or zero.
 	seed   uint32     = 1234569 // Initial PRNG seed
 
 	frameInitT time.Time // Reused variable for timing frames
@@ -54,7 +56,7 @@ var (
 	frameDur   float64   // Reused variable for storing the duration of the last frame
 	spwnTmr    float64   // Timer for particle spawning
 	cleanupTmr float64   // Timer for cleaning up the particle array
-	runTmr     float64   // Timer of total running time
+	runTmr     float64   // Timer of total running timer
 
 	frames   [RunningTime * 1000]float64 // Array for storing the length of each frame
 	curFrame uint64                      // The current number of frames that have elapsed
@@ -63,6 +65,13 @@ var (
 	windY float64 = 0
 	windZ float64 = 0
 	grav  float64 = 0.5
+
+	gVBO gl.Uint 
+	Vertices [24]Vertex
+	curVertex uint32
+	curNormalX gl.Float
+	curNormalY gl.Float
+	curNormalZ gl.Float	
 )
 
 func errorCallback(err glfw.ErrorCode, desc string) {
@@ -72,6 +81,27 @@ func errorCallback(err glfw.ErrorCode, desc string) {
 type Pt struct {
 	X, Y, Z, VX, VY, VZ, R, Life float64 // The position, velocity, radius, and remaining lifetime of a particle
 	is                           bool    // Whether this index in the pool (array) is currently occupied by a living particle or not
+}
+
+type Vertex struct {
+	pos [3]gl.Float
+	normal [3]gl.Float
+}
+
+
+func newVertex(x,y,z gl.Float){
+	newPos := [3]gl.Float{x,y,z}
+	newNormal := [3]gl.Float{curNormalX,curNormalY,curNormalZ}
+	thisVertex := Vertex{pos: newPos, normal: newNormal}
+	Vertices[curVertex] = thisVertex
+	fmt.Println(Vertices[curVertex])
+	curVertex++
+}
+
+func newNormal(nx,ny,nz gl.Float){
+	curNormalX = nx
+	curNormalY = ny
+	curNormalZ = nz
 }
 
 func rand() uint32 {
@@ -179,6 +209,9 @@ func main() {
 		panic("Can't init glfw!")
 	}
 	defer glfw.Terminate()
+	glfw.WindowHint(glfw.Samples, 2);
+	glfw.WindowHint(glfw.ContextVersionMajor, 2);
+	glfw.WindowHint(glfw.ContextVersionMinor, 1);
 	window, err := glfw.CreateWindow(Width, Height, Title, nil, nil)
 	if err != nil {
 		panic(err)
@@ -188,6 +221,7 @@ func main() {
 	glfw.SwapInterval(0) // No limit on FPS
 	gl.Init()
 	initScene()
+	loadCubeToGPU()
 	for !window.ShouldClose() {
 		frameInitT = time.Now()
 		movPts(frameDur)
@@ -202,12 +236,8 @@ func main() {
 		}
 		checkColls()
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-		for i := minPt; i <= numPts; i++ {
-			if Pts[i].is == false {
-				continue
-			}
-			drawPt(&Pts[i])
-		}
+
+		renderPts()
 		window.SwapBuffers()
 		glfw.PollEvents()
 		frameEndT = time.Now()
@@ -238,7 +268,10 @@ func main() {
 			fmt.Println("The standard deviation was:", sd, "frames per second.")
 			break
 		}
+	
 	}
+	gl.DisableClientState( gl.NORMAL_ARRAY );
+	gl.DisableClientState( gl.VERTEX_ARRAY );
 }
 
 func initScene() {
@@ -249,9 +282,9 @@ func initScene() {
 	gl.ClearDepth(1)
 	gl.DepthFunc(gl.LEQUAL)
 
-	gl.Lightfv(gl.LIGHT0, gl.AMBIENT, ambient)
-	gl.Lightfv(gl.LIGHT0, gl.DIFFUSE, diffuse)
-	gl.Lightfv(gl.LIGHT0, gl.POSITION, lightPos)
+	gl.Lightfv(gl.LIGHT0, gl.AMBIENT, &ambient[0])
+	gl.Lightfv(gl.LIGHT0, gl.DIFFUSE, &diffuse[0])
+	gl.Lightfv(gl.LIGHT0, gl.POSITION, &lightPos[0])
 	gl.Enable(gl.LIGHT0)
 
 	gl.Viewport(0, 0, Width, Height)
@@ -266,51 +299,64 @@ func initScene() {
 	return
 }
 
-func drawPt(pt *Pt) {
-	gl.MatrixMode(gl.MODELVIEW)
-	gl.PopMatrix()
-	gl.PushMatrix()
-	gl.Translatef(float32((*pt).X), float32((*pt).Y), -float32((*pt).Z))
-	gl.Scalef(float32((*pt).R*2), float32((*pt).R*2), float32((*pt).R*2))
-	gl.Color4f(0.7, 0.9, 0.2, 1)
+func loadCubeToGPU(){
+	newNormal(0, 0, 1)
+	newVertex(-1, -1, 1)
+	newVertex(1, -1, 1)
+	newVertex(1, 1, 1)
+	newVertex(-1, 1, 1)
 
-	gl.Begin(gl.QUADS)
+	newNormal(0, 0, -1)
+	newVertex(-1, -1, -1)
+	newVertex(-1, 1, -1)
+	newVertex(1, 1, -1)
+	newVertex(1, -1, -1)
 
-	gl.Normal3f(0, 0, 1)
-	gl.Vertex3f(-1, -1, 1)
-	gl.Vertex3f(1, -1, 1)
-	gl.Vertex3f(1, 1, 1)
-	gl.Vertex3f(-1, 1, 1)
+	newNormal(0, 1, 0)
+	newVertex(-1, 1, -1)
+	newVertex(-1, 1, 1)
+	newVertex(1, 1, 1)
+	newVertex(1, 1, -1)
 
-	gl.Normal3f(0, 0, -1)
-	gl.Vertex3f(-1, -1, -1)
-	gl.Vertex3f(-1, 1, -1)
-	gl.Vertex3f(1, 1, -1)
-	gl.Vertex3f(1, -1, -1)
+	newNormal(0, -1, 0)
+	newVertex(-1, -1, -1)
+	newVertex(1, -1, -1)
+	newVertex(1, -1, 1)
+	newVertex(-1, -1, 1)
 
-	gl.Normal3f(0, 1, 0)
-	gl.Vertex3f(-1, 1, -1)
-	gl.Vertex3f(-1, 1, 1)
-	gl.Vertex3f(1, 1, 1)
-	gl.Vertex3f(1, 1, -1)
+	newNormal(1, 0, 0)
+	newVertex(1, -1, -1)
+	newVertex(1, 1, -1)
+	newVertex(1, 1, 1)
+	newVertex(1, -1, 1)
 
-	gl.Normal3f(0, -1, 0)
-	gl.Vertex3f(-1, -1, -1)
-	gl.Vertex3f(1, -1, -1)
-	gl.Vertex3f(1, -1, 1)
-	gl.Vertex3f(-1, -1, 1)
+	newNormal(-1, 0, 0)
+	newVertex(-1, -1, -1)
+	newVertex(-1, -1, 1)
+	newVertex(-1, 1, 1)
+	newVertex(-1, 1, -1)
 
-	gl.Normal3f(1, 0, 0)
-	gl.Vertex3f(1, -1, -1)
-	gl.Vertex3f(1, 1, -1)
-	gl.Vertex3f(1, 1, 1)
-	gl.Vertex3f(1, -1, 1)
+	gl.GenBuffers( 1, &gVBO )
+	gl.BindBuffer( gl.ARRAY_BUFFER, gVBO )
+	gl.BufferData( gl.ARRAY_BUFFER, gl.Sizeiptr(unsafe.Sizeof(Vertex{})*24), gl.Pointer(&Vertices[0]), gl.STATIC_DRAW )
+	
+	gl.EnableClientState( gl.VERTEX_ARRAY );
+	gl.EnableClientState( gl.NORMAL_ARRAY );	
+	gl.VertexPointer( 3, gl.FLOAT, 24, nil );	
+	gl.NormalPointer( gl.FLOAT, 12, nil);	
+}
 
-	gl.Normal3f(-1, 0, 0)
-	gl.Vertex3f(-1, -1, -1)
-	gl.Vertex3f(-1, -1, 1)
-	gl.Vertex3f(-1, 1, 1)
-	gl.Vertex3f(-1, 1, -1)
-
-	gl.End()
+func renderPts(){
+	gl.MatrixMode(gl.MODELVIEW);	
+	for i := minPt; i <= numPts; i++ {
+		if (Pts[i].is == false) {
+			continue
+		}
+		pt := &Pts[i];
+		gl.PopMatrix();
+		gl.PushMatrix();
+		gl.Translatef(gl.Float((*pt).X), gl.Float((*pt).Y), -gl.Float((*pt).Z));
+		gl.Scalef(gl.Float((*pt).R * 2), gl.Float((*pt).R*2), gl.Float((*pt).R*2));
+		gl.DrawArrays( gl.QUADS, 0, 24 );	
+	}
 }

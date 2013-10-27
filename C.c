@@ -141,13 +141,13 @@ void doWind() {
 	windX += ( (double)(xorRand() % WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
 	windY += ( (double)(xorRand() % WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
 	windZ += ( (double)(xorRand() % WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
-	if (abs(windX) > MAX_WIND) {
+	if (fabs(windX) > MAX_WIND) {
 		windX *= -0.5;
 	}
-	if (abs(windY) > MAX_WIND) {
+	if (fabs(windY) > MAX_WIND) {
 		windY *= -0.5;
 	}
-	if (abs(windZ) > MAX_WIND) {
+	if (fabs(windZ) > MAX_WIND) {
 		windZ *= -0.5;
 	}
 }

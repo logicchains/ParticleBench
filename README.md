@@ -10,3 +10,5 @@ clang C.c -std=c99 -O3 -lGL -lGLU -lglfw3 -lX11 -lXxf86vm -lXrandr -lpthread -lX
 go build Go.go
 
 dmd D.d -L-lDerelictGLFW3 -L-lDerelictUtil -L-ldl -L-lDerelictGL3 -O -release -inline
+
+rustc R.rs --opt-level=3

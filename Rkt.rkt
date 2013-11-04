@@ -19,15 +19,15 @@
 (define *START_Y* *MAX_Y*)
 (define *START_DEPTH* (+ *MIN_DEPTH* (/ (+ *MIN_DEPTH* *MAX_DEPTH*) 2) ))
 
-(define *POINTS_PER_SEC* 1000)
+(define *POINTS_PER_SEC* 2000)
 (define *MAX_INIT_VEL* 7.0)
-(define *MAX_LIFE* 5000)
+(define *MAX_LIFE* 5) ;seconds
 (define *MAX_SCALE* 4.0)
 
-(define *WIND_CHANGE* 2000.0)
+(define *WIND_CHANGE* 2.0)
 (define *MAX_WIND* 3.0)
 (define *SPAWN_INTERVAL* 0.01 )
-(define *RUNNING_TIME* (* (/ *MAX_LIFE* 1000) 5))
+(define *RUNNING_TIME* (* *MAX_LIFE* 5))
 (define *MAX_PTS* (* *RUNNING_TIME* *POINTS_PER_SEC*))
 
 (define init-t 0.0)
@@ -56,19 +56,11 @@
 (define light-pos (f32vector (+ *MIN_X* (/ (- *MAX_X* *MIN_X*) 2) ) *MAX_Y* *MIN_DEPTH* 0.0))
 
 (struct pt (x y z vx vy vz R life is)
-  #:mutable
-  ) 
+  #:mutable) 
 
 (define max-pt 0)      
 (define min-pt 0)  
 (define seed 1234569)
-
-(define (rand)
-  (set! seed (bitwise-xor seed (arithmetic-shift seed 13) ) )
-  (set! seed (bitwise-xor seed (arithmetic-shift seed -17) ) )
-  (set! seed (bitwise-xor seed (arithmetic-shift seed 5) ) )
-  seed
-  )
 
 (define pts (make-vector *MAX_PTS* [pt 0 0 0 0 0 0 0 0 0])) 
 
@@ -103,14 +95,14 @@
 
 (define (new-pt)
   (vector-set! pts max-pt ( pt
-                            (- (+ 0 (remainder (rand) *START_RANGE*)) (/ *START_RANGE* 2) )
+                            (- (+ 0 (* (random) *START_RANGE*)) (/ *START_RANGE* 2) )
                             *START_Y*
-                            (- (+ *START_DEPTH* (remainder (rand) *START_RANGE*)) (/ *START_RANGE* 2) )
-                            (remainder (rand) *MAX_INIT_VEL*)
-                            (remainder (rand) *MAX_INIT_VEL*)
-                            (remainder (rand) *MAX_INIT_VEL*)
-                            (/ (remainder (rand) (* *MAX_SCALE* 100) ) 200)
-                            (/ (remainder (rand) *MAX_LIFE*) 1000)
+                            (- (+ *START_DEPTH* (* (random) *START_RANGE*)) (/ *START_RANGE* 2) )
+                            (* (random) *MAX_INIT_VEL*)
+                            (* (random) *MAX_INIT_VEL*)
+                            (* (random) *MAX_INIT_VEL*)
+                            (/ (* (random) *MAX_SCALE* ) 2)
+                            (* (random) *MAX_LIFE*)
                             1
                             )
                )
@@ -143,32 +135,32 @@
 (define (check-colls)
   (for ([i (in-range min-pt max-pt)]
         #:when (equal? (pt-is (vector-ref pts i)) 1) ) (begin        
-            (if (< (pt-x (vector-ref pts i)) *MIN_X*) (begin 
-                                                        (set-pt-x! (vector-ref pts i) (+ *MIN_X* (pt-R (vector-ref pts i))) )
-                                                        (set-pt-vx! (vector-ref pts i) (* (pt-vx (vector-ref pts i)) -1.1)) ) #f)
-            (if (> (pt-x (vector-ref pts i)) *MAX_X*) (begin 
-                                                        (set-pt-x! (vector-ref pts i) (- *MAX_X* (pt-R (vector-ref pts i))) )
-                                                        (set-pt-vx! (vector-ref pts i) (* (pt-vx (vector-ref pts i)) -1.1)) ) #f)
-            (if (< (pt-y (vector-ref pts i)) *MIN_Y*) (begin 
-                                                        (set-pt-y! (vector-ref pts i) (+ *MIN_Y* (pt-R (vector-ref pts i))) )
-                                                        (set-pt-vy! (vector-ref pts i) (* (pt-vy (vector-ref pts i)) -1.1)) ) #f)
-            (if (> (pt-y (vector-ref pts i)) *MAX_Y*) (begin 
-                                                        (set-pt-y! (vector-ref pts i) (- *MAX_Y* (pt-R (vector-ref pts i))) )
-                                                        (set-pt-vy! (vector-ref pts i) (* (pt-vy (vector-ref pts i)) -1.1)) ) #f)
-            (if (< (pt-z (vector-ref pts i)) *MIN_DEPTH*) (begin 
-                                                            (set-pt-z! (vector-ref pts i) (+ *MIN_DEPTH* (pt-R (vector-ref pts i))) )
-                                                            (set-pt-vz! (vector-ref pts i) (* (pt-vz (vector-ref pts i)) -1.1)) ) #f)
-            (if (> (pt-z (vector-ref pts i)) *MAX_DEPTH*) (begin 
-                                                            (set-pt-z! (vector-ref pts i) (- *MAX_DEPTH* (pt-R (vector-ref pts i))) )
-                                                            (set-pt-vz! (vector-ref pts i) (* (pt-vz (vector-ref pts i)) -1.1)) ) #f)
-            )
+                                                         (if (< (pt-x (vector-ref pts i)) *MIN_X*) (begin 
+                                                                                                     (set-pt-x! (vector-ref pts i) (+ *MIN_X* (pt-R (vector-ref pts i))) )
+                                                                                                     (set-pt-vx! (vector-ref pts i) (* (pt-vx (vector-ref pts i)) -1.1)) ) #f)
+                                                         (if (> (pt-x (vector-ref pts i)) *MAX_X*) (begin 
+                                                                                                     (set-pt-x! (vector-ref pts i) (- *MAX_X* (pt-R (vector-ref pts i))) )
+                                                                                                     (set-pt-vx! (vector-ref pts i) (* (pt-vx (vector-ref pts i)) -1.1)) ) #f)
+                                                         (if (< (pt-y (vector-ref pts i)) *MIN_Y*) (begin 
+                                                                                                     (set-pt-y! (vector-ref pts i) (+ *MIN_Y* (pt-R (vector-ref pts i))) )
+                                                                                                     (set-pt-vy! (vector-ref pts i) (* (pt-vy (vector-ref pts i)) -1.1)) ) #f)
+                                                         (if (> (pt-y (vector-ref pts i)) *MAX_Y*) (begin 
+                                                                                                     (set-pt-y! (vector-ref pts i) (- *MAX_Y* (pt-R (vector-ref pts i))) )
+                                                                                                     (set-pt-vy! (vector-ref pts i) (* (pt-vy (vector-ref pts i)) -1.1)) ) #f)
+                                                         (if (< (pt-z (vector-ref pts i)) *MIN_DEPTH*) (begin 
+                                                                                                         (set-pt-z! (vector-ref pts i) (+ *MIN_DEPTH* (pt-R (vector-ref pts i))) )
+                                                                                                         (set-pt-vz! (vector-ref pts i) (* (pt-vz (vector-ref pts i)) -1.1)) ) #f)
+                                                         (if (> (pt-z (vector-ref pts i)) *MAX_DEPTH*) (begin 
+                                                                                                         (set-pt-z! (vector-ref pts i) (- *MAX_DEPTH* (pt-R (vector-ref pts i))) )
+                                                                                                         (set-pt-vz! (vector-ref pts i) (* (pt-vz (vector-ref pts i)) -1.1)) ) #f)
+                                                         )
     )
   )
 
 (define (do-wind)
-  (set! windX (* (- (/ (remainder (rand) *WIND_CHANGE*) *WIND_CHANGE*) (/ *WIND_CHANGE* 2000) ) frame-dur))
-  (set! windY (* (- (/ (remainder (rand) *WIND_CHANGE*) *WIND_CHANGE*) (/ *WIND_CHANGE* 2000) ) frame-dur))
-  (set! windZ (* (- (/ (remainder (rand) *WIND_CHANGE*) *WIND_CHANGE*) (/ *WIND_CHANGE* 2000) ) frame-dur))
+  (set! windX (* (- (* (random) *WIND_CHANGE*) (/ *WIND_CHANGE* 2) ) frame-dur))
+  (set! windY (* (- (* (random) *WIND_CHANGE*) (/ *WIND_CHANGE* 2) ) frame-dur))
+  (set! windZ (* (- (* (random) *WIND_CHANGE*) (/ *WIND_CHANGE* 2) ) frame-dur))
   (if (> (abs windX) *MAX_WIND*) (set! windX (* windX -0.5) ) #f)
   (if (> (abs windY) *MAX_WIND*) (set! windY (* windY -0.5) ) #f)
   (if (> (abs windZ) *MAX_WIND*) (set! windZ (* windZ -0.5) ) #f)
@@ -181,7 +173,7 @@
                                       (glPopMatrix)
                                       (glPushMatrix) 
                                       (glTranslatef (pt-x apt) (pt-y apt) (- 0 (pt-z apt)) ) 
-                                      ;        (glScalef (* (pt-R apt) 2) (* (pt-R apt) 2) (* (pt-R apt) 2))
+                                      (glScalef (* (pt-R apt) 2) (* (pt-R apt) 2) (* (pt-R apt) 2))
                                       (glDrawArrays GL_QUADS 0 24)        
                                       ) 
       )
@@ -202,8 +194,7 @@
   (glBufferData GL_ARRAY_BUFFER
                 (gl-vector-sizeof vertex-normal-array)
                 vertex-normal-array
-                GL_STATIC_DRAW)
-  
+                GL_STATIC_DRAW)  
   (glEnableClientState GL_VERTEX_ARRAY)
   (glEnableClientState GL_NORMAL_ARRAY)
   (glVertexPointer 3 GL_FLOAT 24 0)
@@ -212,6 +203,7 @@
   )
 
 (define (init) 
+  (random-seed seed)
   (SDL_Init SDL_INIT_VIDEO)
   (set! sdl-window (SDL_CreateWindow *TITLE* SDL_WINDOWPOS_UNDEFINED SDL_WINDOWPOS_UNDEFINED *SCREEN_WIDTH* *SCREEN_HEIGHT* #x00000002))
   (set! sdl-renderer (SDL_CreateRenderer sdl-window -1 0))
@@ -233,7 +225,7 @@
   (glLightfv GL_LIGHT0 GL_DIFFUSE diffuse)
   (glLightfv GL_LIGHT0 GL_POSITION light-pos)
   (glEnable GL_LIGHT0)
-    
+  
   (glViewport 0 0 *SCREEN_WIDTH* *SCREEN_HEIGHT*)
   (glMatrixMode GL_PROJECTION)
   (glLoadIdentity)

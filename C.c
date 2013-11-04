@@ -185,9 +185,9 @@ void checkColls() {
 }
 
 void cleanupPtPool() {
-	for (int i = 0; i <= numPts; i++) {
+	for (int i = minPt; i <= numPts; i++) {
 		if (Pts[i].is == true) {
-			minPt += i;
+			minPt = i;
 			break;
 		}
 	}

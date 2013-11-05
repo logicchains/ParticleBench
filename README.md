@@ -12,3 +12,8 @@ go build Go.go
 dmd D.d -L-lDerelictGLFW3 -L-lDerelictUtil -L-ldl -L-lDerelictGL3 -O -release -inline
 
 rustc R.rs --opt-level=3
+
+racket Rkt.rkt
+
+javac -classpath "jar/gluegen-rt.jar:jar/jogl-all.jar" ./OneTriangleSwingGLCanvas.java
+java -classpath "jar/gluegen-rt.jar:jar/jogl-all.jar:." -Djava.library.path=lib OneTriangleSwingGLCanvas

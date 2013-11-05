@@ -158,9 +158,9 @@
   )
 
 (define (do-wind)
-  (set! windX (* (- (* (random) *WIND_CHANGE*) (/ *WIND_CHANGE* 2) ) frame-dur))
-  (set! windY (* (- (* (random) *WIND_CHANGE*) (/ *WIND_CHANGE* 2) ) frame-dur))
-  (set! windZ (* (- (* (random) *WIND_CHANGE*) (/ *WIND_CHANGE* 2) ) frame-dur))
+  (set! windX (+ (* (- (* (random) *WIND_CHANGE*) (/ *WIND_CHANGE* 2) ) frame-dur) windX) )
+  (set! windY (+ (* (- (* (random) *WIND_CHANGE*) (/ *WIND_CHANGE* 2) ) frame-dur) windY) )
+  (set! windZ (+ (* (- (* (random) *WIND_CHANGE*) (/ *WIND_CHANGE* 2) ) frame-dur) windZ) )
   (if (> (abs windX) *MAX_WIND*) (set! windX (* windX -0.5) ) #f)
   (if (> (abs windY) *MAX_WIND*) (set! windY (* windY -0.5) ) #f)
   (if (> (abs windZ) *MAX_WIND*) (set! windZ (* windZ -0.5) ) #f)

@@ -16,4 +16,5 @@ rustc R.rs --opt-level=3
 racket Rkt.rkt
 
 javac -classpath "jar/gluegen-rt.jar:jar/jogl-all.jar" ./OneTriangleSwingGLCanvas.java 
+
 java -classpath "jar/gluegen-rt.jar:jar/jogl-all.jar:." -Djava.library.path=lib OneTriangleSwingGLCanvas

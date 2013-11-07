@@ -18,3 +18,9 @@ racket Rkt.rkt
 javac -classpath "jar/gluegen-rt.jar:jar/jogl-all.jar" ./Java.java 
 
 java -classpath "jar/gluegen-rt.jar:jar/jogl-all.jar:." -Djava.library.path=lib Java
+
+mcs CS.cs -r:OpenTK.dll -unsafe
+
+mono CS.exe
+
+python Py.py

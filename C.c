@@ -305,7 +305,7 @@ int main(int argc, char* argv[]) {
 		exit(EXIT_FAILURE);
 	}
 	glfwMakeContextCurrent(window);
-	glfwSwapInterval(1);
+	glfwSwapInterval(0);
 	initScene();
 	GLenum glewError = glewInit();
 	if( glewError != GLEW_OK ){

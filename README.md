@@ -24,3 +24,5 @@ mcs CS.cs -r:OpenTK.dll -unsafe
 mono CS.exe
 
 python Py.py
+
+In SBCL repl: (load "Lisp.lisp") then (pb:run). It requires Quicklisp.

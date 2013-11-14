@@ -25,4 +25,4 @@ mono CS.exe
 
 python Py.py
 
-In SBCL repl: (load "Lisp.lisp") then (pb:run). It requires Quicklisp.
+sbcl --load Lisp.lisp --eval "(pb:run)"

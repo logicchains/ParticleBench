@@ -328,7 +328,7 @@ fn main() {
     do glfw::start {
 	glfw::window_hint::context_version(2, 1);
 	//glfw::window_hint::samples(2);
-        let window = glfw::Window::create(Width, Height, "Hello this is window", glfw::Windowed)
+        let window = glfw::Window::create(Width, Height, Title, glfw::Windowed)
             .expect("Failed to create GLFW window.");
         window.make_context_current();
 

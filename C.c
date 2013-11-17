@@ -34,6 +34,9 @@
 #define RUNNING_TIME ((MAX_LIFE / 1000) * 5)
 #define MAX_PTS (RUNNING_TIME * POINTS_PER_SEC)
 
+#define NUM_VERTICES 24
+#define NUM_NORMALS (NUM_VERTICES / 4)
+
 double initT = 0;
 double endT = 0;
 double frameDur = 0;
@@ -58,7 +61,7 @@ struct Vertex {
 	GLfloat normal[3];
 };
 
-struct Vertex Vertices[ 24 ];
+struct Vertex Vertices[ NUM_VERTICES ];
 uint32_t curVertex = 0;
 uint32_t curNormal = 0;
 
@@ -258,16 +261,24 @@ bool loadCubeToGPU(){
 
 	glGenBuffers( 1, &gVBO );
 	glBindBuffer( GL_ARRAY_BUFFER, gVBO );
-	glBufferData( GL_ARRAY_BUFFER, 24 * sizeof(struct Vertex), Vertices, GL_STATIC_DRAW );
+	glBufferData( GL_ARRAY_BUFFER, NUM_VERTICES * sizeof(struct Vertex), &(Vertices[0].pos[0]), GL_STATIC_DRAW );
+
+	glEnableClientState( GL_VERTEX_ARRAY );
+	glEnableClientState( GL_NORMAL_ARRAY );
+
+	glVertexPointer( 3, GL_FLOAT, sizeof(struct Vertex), 0 );	
+	glNormalPointer( GL_FLOAT, sizeof(struct Vertex), (const GLvoid *)offsetof( struct Vertex, normal ) );	
 
 	return true;
 }
 
+void cleanupBuffers(){
+  glDeleteBuffers( 1, &gVBO );
+  glDisableClientState( GL_NORMAL_ARRAY );
+  glDisableClientState( GL_VERTEX_ARRAY );
+}
+
 void renderPts(){
-	glEnableClientState( GL_VERTEX_ARRAY );
-	glEnableClientState( GL_NORMAL_ARRAY );	
-	glVertexPointer( 3, GL_FLOAT, 24, NULL );	
-	glNormalPointer( GL_FLOAT, 12, 0);	
 
 	for (int i = minPt; i <= numPts; i++) {
 		if (Pts[i].is == false) {
@@ -280,11 +291,9 @@ void renderPts(){
 		glTranslatef(pt->X, pt->Y, -pt->Z);
 		glScalef(pt->R * 2, pt->R*2, pt->R*2);
 		glColor4f(0.7, 0.9, 0.2, 1);
-		glDrawArrays( GL_QUADS, 0, 24 );
+		glDrawArrays( GL_QUADS, 0, NUM_VERTICES );
 		
 	}
-	glDisableClientState( GL_NORMAL_ARRAY );
-	glDisableClientState( GL_VERTEX_ARRAY );
 }
 
 void error_callback(int error, const char* description){
@@ -365,6 +374,7 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 	}
+	cleanupBuffers();
 	glfwDestroyWindow(window);
 	glfwTerminate();
 	exit(EXIT_SUCCESS);

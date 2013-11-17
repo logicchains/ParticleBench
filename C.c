@@ -261,7 +261,7 @@ bool loadCubeToGPU(){
 
 	glGenBuffers( 1, &gVBO );
 	glBindBuffer( GL_ARRAY_BUFFER, gVBO );
-	glBufferData( GL_ARRAY_BUFFER, NUM_VERTICES * sizeof(struct Vertex), &(Vertices[0].pos[0]), GL_STATIC_DRAW );
+	glBufferData( GL_ARRAY_BUFFER, NUM_VERTICES * sizeof(struct Vertex), Vertices, GL_STATIC_DRAW );
 
 	glEnableClientState( GL_VERTEX_ARRAY );
 	glEnableClientState( GL_NORMAL_ARRAY );

@@ -51,17 +51,16 @@ constexpr uint32_t NUM_NORMALS = NUM_VERTICES / 4;
 constexpr uint32_t RAND_SEED = 1234569;
 
 struct Pt {
-	double X; double Y; double Z; double VX; double VY; double VZ; double R; double Life; 
-	bool is;
+  double X; double Y; double Z; double VX; double VY; double VZ; double R; double Life; 
+  bool is;
 };
 
 struct Vertex {
-	GLfloat pos[3];
-	GLfloat normal[3];
+  GLfloat pos[3];
+  GLfloat normal[3];
 };
 
-const GLfloat srcCoords[ NUM_VERTICES ][3] =
-{
+const GLfloat srcCoords[ NUM_VERTICES ][3] = {
   {-1, -1, 1},
   {1, -1, 1},
   {1, 1, 1},
@@ -93,8 +92,7 @@ const GLfloat srcCoords[ NUM_VERTICES ][3] =
   {-1, 1, -1}
 };
 
-const GLfloat srcNormals[ NUM_NORMALS ][3] =
-{
+const GLfloat srcNormals[ NUM_NORMALS ][3] = {
   {0, 0, 1},
   {0, 0, -1},
   {0, 1, 0},
@@ -112,43 +110,34 @@ float ambient[4] = {0.8, 0.05, 0.1, 1};
 float diffuse[4] = {1.0, 1.0, 1.0, 1};
 float lightPos[4] = {MIN_X + (MAX_X-MIN_X)/2, MAX_Y, MIN_DEPTH, 0};
 
-struct XorRandGenerator
-{
-  uint32_t operator()( uint32_t & gen )
-  {
+struct XorRandGenerator {
+  uint32_t operator()( uint32_t & gen ) {
     gen ^= gen << 13;
     gen ^= gen >> 17;
     gen ^= gen << 5;
     return gen;
   }
 
-  uint32_t mod( uint32_t & gen, const uint32_t mod )
-  {
+  uint32_t mod( uint32_t & gen, const uint32_t mod ) {
     return ((*this)( gen ))%mod;
   }
 };
 
 template<class RandGenerator>
-class Particles
-{
+class Particles {
 public:
   Particles( RandGenerator & randGenerator, const uint32_t numParticles ) :
     randGenerator_( randGenerator ),
     numPts( 0 ),
     minPt( 0 ),
-    particles_( numParticles, Pt {0, 0, 0, 0, 0, 0, 0, 0, 0 } )
-  {
-  };
+    particles_( numParticles, Pt {0, 0, 0, 0, 0, 0, 0, 0, 0 } ) {};
 
-  void moveParticles(double secs)
-  {
+  void moveParticles(double secs) {
     uint32_t newMinPt( minPt );
     bool onExpired( true );
-    for( uint32_t i = minPt; i < numPts; i++)
-    {
+    for( uint32_t i = minPt; i < numPts; i++) {
       Pt & p( particles_[i] );
-      if( p.is == false )
-      {
+      if( p.is == false ) {
 	continue;
       }
       p.X += p.VX * secs;
@@ -159,103 +148,85 @@ public:
       p.VY -= grav;
       p.VZ += windZ * 1 / p.R;
       p.Life -= secs;
-      if (p.Life <= 0 )
-      {
+      if (p.Life <= 0 ) {
 	p.is = false;
       }
     }
   }
 
-  void spawnParticles(double secs, uint32_t & randValue )
-  {
+  void spawnParticles(double secs, uint32_t & randValue ) {
     uint32_t num = secs * POINTS_PER_SEC;
     uint32_t i = 0;
-    for (; i < num; i++)
-      {
-	Pt & pt = particles_[numPts];
-	pt.X = 0 + (double)( randGenerator_.mod( randValue, START_RANGE ) ) - START_RANGE/2;
-	pt.Y = START_Y;
-	pt.Z = START_DEPTH + (double)( randGenerator_.mod( randValue, START_RANGE ) ) - START_RANGE/2;
-	pt.VX = (double)( randGenerator_.mod( randValue, MAX_INIT_VEL) );
-	pt.VY = (double)( randGenerator_.mod( randValue, MAX_INIT_VEL) );
-	pt.VZ = (double)( randGenerator_.mod( randValue, MAX_INIT_VEL) );
-	pt.R = (double)( randGenerator_.mod( randValue, (MAX_SCALE*100) ) ) / 200;
-	pt.Life = (double)( randGenerator_.mod( randValue, MAX_LIFE) ) / 1000;
-	pt.is = true;
-	numPts++;
-      }
+    for (; i < num; i++) {
+      Pt & pt = particles_[numPts];
+      pt.X = 0 + (double)( randGenerator_.mod( randValue, START_RANGE ) ) - START_RANGE/2;
+      pt.Y = START_Y;
+      pt.Z = START_DEPTH + (double)( randGenerator_.mod( randValue, START_RANGE ) ) - START_RANGE/2;
+      pt.VX = (double)( randGenerator_.mod( randValue, MAX_INIT_VEL) );
+      pt.VY = (double)( randGenerator_.mod( randValue, MAX_INIT_VEL) );
+      pt.VZ = (double)( randGenerator_.mod( randValue, MAX_INIT_VEL) );
+      pt.R = (double)( randGenerator_.mod( randValue, (MAX_SCALE*100) ) ) / 200;
+      pt.Life = (double)( randGenerator_.mod( randValue, MAX_LIFE) ) / 1000;
+      pt.is = true;
+      numPts++;
+    }
   }
 
-  void checkForCollisions()
-  {
-    for (int i = minPt; i < numPts; i++)
-      {
-	Pt & p( particles_[i] );
-	if (p.is == false)
-	  {
-	    continue;
-	  }
-	if (p.X < MIN_X)
-	  {
-	    p.X = MIN_X + p.R;
-	    p.VX *= -1.1; // These particles are magic; they accelerate by 10% at every bounce off the bounding box
-	  }
-	if (p.X > MAX_X)
-	  {
-	    p.X = MAX_X - p.R;
-	    p.VX *= -1.1;
-	  }
-	if (p.Y < MIN_Y)
-	  {
-	    p.Y = MIN_Y + p.R;
-	    p.VY *= -1.1;
-	  }
-	if (p.Y > MAX_Y)
-	  {
-	    p.Y = MAX_Y - p.R;
-	    p.VY *= -1.1;
-	  }
-	if (p.Z < MIN_DEPTH)
-	  {
-	    p.Z = MIN_DEPTH + p.R;
-	    p.VZ *= -1.1;
-	  }
-	if (p.Z > MAX_DEPTH)
-	  {
-	    p.Z = MAX_DEPTH - p.R;
-	    p.VZ *= -1.1;
-	  }
+  void checkForCollisions() {
+    for (int i = minPt; i < numPts; i++) {
+      Pt & p( particles_[i] );
+      if (p.is == false) {
+	continue;
       }
+      if (p.X < MIN_X) {
+	p.X = MIN_X + p.R;
+	p.VX *= -1.1; // These particles are magic; they accelerate by 10% at every bounce off the bounding box
+      }
+      if (p.X > MAX_X) {
+	p.X = MAX_X - p.R;
+	p.VX *= -1.1;
+      }
+      if (p.Y < MIN_Y) {
+	p.Y = MIN_Y + p.R;
+	p.VY *= -1.1;
+      }
+      if (p.Y > MAX_Y) {
+	p.Y = MAX_Y - p.R;
+	p.VY *= -1.1;
+      }
+      if (p.Z < MIN_DEPTH) {
+	p.Z = MIN_DEPTH + p.R;
+	p.VZ *= -1.1;
+      }
+      if (p.Z > MAX_DEPTH) {
+	p.Z = MAX_DEPTH - p.R;
+	p.VZ *= -1.1;
+      }
+    }
   }
 
-  void renderParticles()
-  {
+  void renderParticles() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    for (int i = minPt; i < numPts; i++)
-      {
-	Pt & p( particles_[i] );
-	if (p.is == false)
-	  {
-	    continue;
-	  }
-	glMatrixMode(GL_MODELVIEW);
-	glPopMatrix();
-	glPushMatrix();
-	glTranslatef(p.X, p.Y, -p.Z);
-	glScalef(p.R*2, p.R*2, p.R*2);
-	glColor4f(0.7, 0.9, 0.2, 1);
-	glDrawArrays( GL_QUADS, 0, 24 );	
+    for (int i = minPt; i < numPts; i++) {
+      Pt & p( particles_[i] );
+      if (p.is == false) {
+	continue;
       }
+      glMatrixMode(GL_MODELVIEW);
+      glPopMatrix();
+      glPushMatrix();
+      glTranslatef(p.X, p.Y, -p.Z);
+      glScalef(p.R*2, p.R*2, p.R*2);
+      glColor4f(0.7, 0.9, 0.2, 1);
+      glDrawArrays( GL_QUADS, 0, 24 );	
+    }
   }
 
-  void cleanupPtPool()
-  {
-    for (int i = minPt; i < numPts; i++)
-    {
+  void cleanupPtPool() {
+    for (int i = minPt; i < numPts; i++) {
       Pt & p( particles_[ i ]);
-      if (p.is == true)
-      {
+      if (p.is == true) {
 	minPt = i;
 	break;
       }
@@ -270,21 +241,18 @@ private:
 };
 
 template<class RandGenerator>
-class GLRenderer
-{
+class GLRenderer {
 public:
   GLRenderer( uint32_t randSeed ) :
     randValue_( randSeed ),
     gVBO_( 0 ),
     particles_( randGenerator_, MAX_PTS ),
     spwnTmr_( 0.0 ),
-    cleanupTmr_( 0.0 )
-  {
+    cleanupTmr_( 0.0 ) {
     vertices_.reserve( NUM_VERTICES );
   }
 
-  void initScene()
-  {
+  void initScene() {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_LIGHTING);
 
@@ -307,14 +275,11 @@ public:
     glPushMatrix();
   }
 
-  void setupBuffers()
-  {
+  void setupBuffers() {
     uint32_t curCoord { 0 };
-    for( uint32_t n = 0 ; n < NUM_NORMALS ; ++n )
-    {
+    for( uint32_t n = 0 ; n < NUM_NORMALS ; ++n ) {
       const GLfloat *cn = srcNormals[n];
-      for( uint32_t p = 0 ; p < 4 ; ++p, ++curCoord )
-      {
+      for( uint32_t p = 0 ; p < 4 ; ++p, ++curCoord ) {
 	const GLfloat *cv = srcCoords[curCoord];
 	vertices_.emplace_back( Vertex {{cv[0], cv[1], cv[2] }, {cn[0], cn[1], cn[2]}} );
       }
@@ -331,69 +296,56 @@ public:
     glNormalPointer( GL_FLOAT, sizeof( Vertex ), (const GLvoid *)offsetof( Vertex, normal ) );
   }
 
-  void teardownBuffers()
-  {
+  void teardownBuffers() {
     glDisableClientState( GL_NORMAL_ARRAY );
     glDisableClientState( GL_VERTEX_ARRAY );
 
     glDeleteBuffers( 1, &gVBO_ );
   }
 
-  void moveParticles(double secs)
-  {
+  void moveParticles(double secs) {
     particles_.moveParticles( secs );
   }
 
-  void doWind( const double frameDur )
-  {
+  void doWind( const double frameDur ) {
     windX += ( (double)( randGenerator_.mod( randValue_, WIND_CHANGE ) ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
     windY += ( (double)( randGenerator_.mod( randValue_, WIND_CHANGE ) ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
     windZ += ( (double)( randGenerator_.mod( randValue_, WIND_CHANGE ) ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
-    if (fabs(windX) > MAX_WIND)
-      {
-	windX *= -0.5;
-      }
-    if (fabs(windY) > MAX_WIND)
-      {
-	windY *= -0.5;
-      }
-    if (fabs(windZ) > MAX_WIND)
-      {
-	windZ *= -0.5;
-      }
+    if (fabs(windX) > MAX_WIND) {
+      windX *= -0.5;
+    }
+    if (fabs(windY) > MAX_WIND) {
+      windY *= -0.5;
+    }
+    if (fabs(windZ) > MAX_WIND) {
+      windZ *= -0.5;
+    }
   }
 
-  void spawnParticles(double secs)
-  {
+  void spawnParticles(double secs) {
     particles_.spawnParticles( secs, randValue_ );
   }
 
-  void checkColls()
-  {
+  void checkColls() {
     particles_.checkForCollisions();
   }
 
-  void renderPts()
-  {
+  void renderPts() {
     particles_.renderParticles();
   }
 
-  void cleanupPtPool()
-  {
+  void cleanupPtPool() {
     particles_.cleanupPtPool();
   }
 
-  void doTimestep( const double frameDuration )
-  {
+  void doTimestep( const double frameDuration ) {
     moveParticles( frameDuration );
     doWind( frameDuration );
-    if( spwnTmr_ >= SPAWN_INTERVAL )
-    {
+    if( spwnTmr_ >= SPAWN_INTERVAL ) {
       spawnParticles( SPAWN_INTERVAL );
       spwnTmr_ -= SPAWN_INTERVAL;
     }
-    if( cleanupTmr_ >= (MAX_LIFE/1000.0) )
-    {
+    if( cleanupTmr_ >= (MAX_LIFE/1000.0) ) {
       cleanupPtPool();
       cleanupTmr_ = 0;
     }
@@ -401,14 +353,12 @@ public:
     renderPts();
   }
 
-  void updateTimers( const double frameDuration )
-  {
+  void updateTimers( const double frameDuration ) {
     spwnTmr_ += frameDuration;
     cleanupTmr_ += frameDuration;
   }
 
-  ~GLRenderer()
-  {
+  ~GLRenderer() {
   }
 
 private:
@@ -425,23 +375,23 @@ private:
 };
 
 
-void error_callback(int error, const char* description){
-	fputs(description, stderr);
-	fflush( stderr );
+void error_callback(int error, const char* description) {
+  fputs(description, stderr);
+  fflush( stderr );
 }
 
 int main(int argc, char* argv[]) {
   vector<double> frames( (RUNNING_TIME * 1000), 0.0 );
   uint64_t curFrame( 0 );
   glfwSetErrorCallback(error_callback);
-  if( !glfwInit() ){
+  if( !glfwInit() ) {
     exit(EXIT_FAILURE);
   }
   glfwWindowHint(GLFW_SAMPLES, 2);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
   GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, TITLE, NULL, NULL); 
-  if (!window){
+  if( !window ) {
     glfwTerminate();
     exit(EXIT_FAILURE);
   }
@@ -465,7 +415,7 @@ int main(int argc, char* argv[]) {
 
   double initT, endT, frameDur, runTmr = 0;
 
-  while (!glfwWindowShouldClose(window)){
+  while (!glfwWindowShouldClose(window)) {
     initT = glfwGetTime();
 
     glRenderer.doTimestep( frameDur );

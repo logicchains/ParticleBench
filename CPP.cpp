@@ -30,9 +30,9 @@ constexpr int32_t MIN_DEPTH = 50;
 constexpr int32_t MAX_DEPTH = 250;
 
 constexpr int32_t START_RANGE = 15;
-constexpr int32_t START_X = (MIN_X + MAX_X)/2;
+constexpr int32_t START_X = (MIN_X + (MIN_X + MAX_X)/2);
 constexpr int32_t START_Y = MAX_Y;
-constexpr int32_t START_DEPTH = (MIN_DEPTH + (MIN_DEPTH + MAX_DEPTH / 2));
+constexpr int32_t START_DEPTH = (MIN_DEPTH + (MIN_DEPTH + MAX_DEPTH) / 2);
 
 constexpr int32_t POINTS_PER_SEC = 2000;
 constexpr int32_t MAX_INIT_VEL = 7;
@@ -50,8 +50,13 @@ constexpr uint32_t NUM_NORMALS = NUM_VERTICES / 4;
 
 constexpr uint32_t RAND_SEED = 1234569;
 
+constexpr double WINDX = 0; 
+constexpr double WINDY = 0;
+constexpr double WINDZ = 0;
+constexpr double GRAV = 0.5;
+
 struct Pt {
-  double X; double Y; double Z; double VX; double VY; double VZ; double R; double Life; 
+  double X, Y, Z, VX, VY, VZ, R, Life; 
   bool is;
 };
 
@@ -65,27 +70,22 @@ const GLfloat srcCoords[ NUM_VERTICES ][3] = {
   {1, -1, 1},
   {1, 1, 1},
   {-1, 1, 1},
-
   {-1, -1, -1},
   {-1, 1, -1},
   {1, 1, -1},
   {1, -1, -1},
-
   {-1, 1, -1},
   {-1, 1, 1},
   {1, 1, 1},
   {1, 1, -1},
-
   {-1, -1, -1},
   {1, -1, -1},
   {1, -1, 1},
   {-1, -1, 1},
-
   {1, -1, -1},
   {1, 1, -1},
   {1, 1, 1},
   {1, -1, 1},
-
   {-1, -1, -1},
   {-1, -1, 1},
   {-1, 1, 1},
@@ -100,15 +100,6 @@ const GLfloat srcNormals[ NUM_NORMALS ][3] = {
   {1, 0, 0},
   {-1, 0, 0}
 };
-
-double windX = 0; 
-double windY = 0;
-double windZ = 0;
-double grav = 0.5;
-
-float ambient[4] = {0.8, 0.05, 0.1, 1};
-float diffuse[4] = {1.0, 1.0, 1.0, 1};
-float lightPos[4] = {MIN_X + (MAX_X-MIN_X)/2, MAX_Y, MIN_DEPTH, 0};
 
 struct XorRandGenerator {
   uint32_t operator()( uint32_t & gen ) {
@@ -128,14 +119,13 @@ class Particles {
 public:
   Particles( RandGenerator & randGenerator, const uint32_t numParticles ) :
     randGenerator_( randGenerator ),
-    numPts( 0 ),
-    minPt( 0 ),
-    particles_( numParticles, Pt {0, 0, 0, 0, 0, 0, 0, 0, 0 } ) {};
+    numPts_( 0 ),
+    minPt_( 0 ),
+    particles_( numParticles, Pt {0, 0, 0, 0, 0, 0, 0, 0, 0 } ),
+    windX_( WINDX ), windY_( WINDY ), windZ_( WINDZ ) {};
 
-  void moveParticles(double secs) {
-    uint32_t newMinPt( minPt );
-    bool onExpired( true );
-    for( uint32_t i = minPt; i < numPts; i++) {
+  void moveParticles( double secs ) {
+    for( uint32_t i = minPt_; i < numPts_; i++) {
       Pt & p( particles_[i] );
       if( p.is == false ) {
 	continue;
@@ -143,10 +133,10 @@ public:
       p.X += p.VX * secs;
       p.Y += p.VY * secs;
       p.Z += p.VZ * secs;
-      p.VX += windX * 1 / p.R;
-      p.VY += windY * 1 / p.R;
-      p.VY -= grav;
-      p.VZ += windZ * 1 / p.R;
+      p.VX += windX_ * 1 / p.R;
+      p.VY += windY_ * 1 / p.R;
+      p.VY -= GRAV;
+      p.VZ += windZ_ * 1 / p.R;
       p.Life -= secs;
       if (p.Life <= 0 ) {
 	p.is = false;
@@ -154,11 +144,26 @@ public:
     }
   }
 
+  void doWind( const double frameDur, uint32_t & randValue )
+  {
+    windX_ += ( (double)( randGenerator_.mod( randValue, WIND_CHANGE ) ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
+    windY_ += ( (double)( randGenerator_.mod( randValue, WIND_CHANGE ) ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
+    windZ_ += ( (double)( randGenerator_.mod( randValue, WIND_CHANGE ) ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
+    if (fabs(windX_) > MAX_WIND) {
+      windX_ *= -0.5;
+    }
+    if (fabs(windY_) > MAX_WIND) {
+      windY_ *= -0.5;
+    }
+    if (fabs(windZ_) > MAX_WIND) {
+      windZ_ *= -0.5;
+    }
+  }
+
   void spawnParticles(double secs, uint32_t & randValue ) {
     uint32_t num = secs * POINTS_PER_SEC;
-    uint32_t i = 0;
-    for (; i < num; i++) {
-      Pt & pt = particles_[numPts];
+    for ( uint32_t i = 0 ; i < num; i++) {
+      Pt & pt = particles_[numPts_];
       pt.X = 0 + (double)( randGenerator_.mod( randValue, START_RANGE ) ) - START_RANGE/2;
       pt.Y = START_Y;
       pt.Z = START_DEPTH + (double)( randGenerator_.mod( randValue, START_RANGE ) ) - START_RANGE/2;
@@ -168,12 +173,12 @@ public:
       pt.R = (double)( randGenerator_.mod( randValue, (MAX_SCALE*100) ) ) / 200;
       pt.Life = (double)( randGenerator_.mod( randValue, MAX_LIFE) ) / 1000;
       pt.is = true;
-      numPts++;
+      numPts_++;
     }
   }
 
   void checkForCollisions() {
-    for (int i = minPt; i < numPts; i++) {
+    for (int i = minPt_; i < numPts_; i++) {
       Pt & p( particles_[i] );
       if (p.is == false) {
 	continue;
@@ -207,8 +212,7 @@ public:
 
   void renderParticles() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    for (int i = minPt; i < numPts; i++) {
+    for (int i = minPt_; i < numPts_; i++) {
       Pt & p( particles_[i] );
       if (p.is == false) {
 	continue;
@@ -224,18 +228,18 @@ public:
   }
 
   void cleanupPtPool() {
-    for (int i = minPt; i < numPts; i++) {
-      Pt & p( particles_[ i ]);
-      if (p.is == true) {
-	minPt = i;
+    for (int i = minPt_; i < numPts_; i++) {
+      if (particles_[i].is == true) {
+	minPt_ = i;
 	break;
       }
     }
   }
 
 private:
-  int numPts;
-  int minPt;
+  int numPts_;
+  int minPt_;
+  double windX_, windY_, windZ_;
   vector<Pt> particles_;
   RandGenerator & randGenerator_;
 };
@@ -260,8 +264,11 @@ public:
     glClearDepth(1);
     glDepthFunc(GL_LEQUAL);
 
+    float ambient[4] = {0.8, 0.05, 0.1, 1};
     glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
+    float diffuse[4] = {1.0, 1.0, 1.0, 1};
     glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
+    float lightPos[4] = {MIN_X + (MAX_X-MIN_X)/2, MAX_Y, MIN_DEPTH, 0};
     glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
     glEnable(GL_LIGHT0);
 
@@ -303,62 +310,24 @@ public:
     glDeleteBuffers( 1, &gVBO_ );
   }
 
-  void moveParticles(double secs) {
-    particles_.moveParticles( secs );
-  }
-
-  void doWind( const double frameDur ) {
-    windX += ( (double)( randGenerator_.mod( randValue_, WIND_CHANGE ) ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
-    windY += ( (double)( randGenerator_.mod( randValue_, WIND_CHANGE ) ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
-    windZ += ( (double)( randGenerator_.mod( randValue_, WIND_CHANGE ) ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
-    if (fabs(windX) > MAX_WIND) {
-      windX *= -0.5;
-    }
-    if (fabs(windY) > MAX_WIND) {
-      windY *= -0.5;
-    }
-    if (fabs(windZ) > MAX_WIND) {
-      windZ *= -0.5;
-    }
-  }
-
-  void spawnParticles(double secs) {
-    particles_.spawnParticles( secs, randValue_ );
-  }
-
-  void checkColls() {
-    particles_.checkForCollisions();
-  }
-
-  void renderPts() {
-    particles_.renderParticles();
-  }
-
-  void cleanupPtPool() {
-    particles_.cleanupPtPool();
-  }
-
   void doTimestep( const double frameDuration ) {
-    moveParticles( frameDuration );
-    doWind( frameDuration );
+    particles_.moveParticles( frameDuration );
+    particles_.doWind( frameDuration, randValue_ );
     if( spwnTmr_ >= SPAWN_INTERVAL ) {
-      spawnParticles( SPAWN_INTERVAL );
+      particles_.spawnParticles( SPAWN_INTERVAL, randValue_ );
       spwnTmr_ -= SPAWN_INTERVAL;
     }
     if( cleanupTmr_ >= (MAX_LIFE/1000.0) ) {
-      cleanupPtPool();
+      particles_.cleanupPtPool();
       cleanupTmr_ = 0;
     }
-    checkColls();
-    renderPts();
+    particles_.checkForCollisions();
+    particles_.renderParticles();
   }
 
   void updateTimers( const double frameDuration ) {
     spwnTmr_ += frameDuration;
     cleanupTmr_ += frameDuration;
-  }
-
-  ~GLRenderer() {
   }
 
 private:
@@ -410,29 +379,22 @@ int main(int argc, char* argv[]) {
     printf( "OpenGL 2.1 not supported!\n" );
     return false;
   }
-
   glRenderer.setupBuffers();
 
   double initT, endT, frameDur, runTmr = 0;
-
   while (!glfwWindowShouldClose(window)) {
     initT = glfwGetTime();
-
     glRenderer.doTimestep( frameDur );
-
     glfwSwapBuffers(window);
     glfwPollEvents();
-
     endT = glfwGetTime();
     frameDur = endT-initT;
     glRenderer.updateTimers( frameDur );
-
     runTmr += frameDur;
-    if (runTmr > MAX_LIFE/1000) { 
+    if (runTmr > MAX_LIFE/1000) {
       frames[curFrame] = frameDur;
-      curFrame += 1;			
+      curFrame += 1;
     }
-		
     if (runTmr >= RUNNING_TIME) {
       double sum = 0;
       uint64_t i = 0;
@@ -440,7 +402,7 @@ int main(int argc, char* argv[]) {
 	sum += frames[i];
       }
       double mean = sum / (double)curFrame;
-      printf("Average framerate was: %f frames per second.\n", 1/mean);		
+      printf("Average framerate was: %f frames per second.\n", 1/mean);
       double sumDiffs = 0.0;
       for (i = 0; i < curFrame; i++) {
 	sumDiffs += pow((1/frames[i])-(1/mean), 2);

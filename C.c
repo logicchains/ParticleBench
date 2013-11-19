@@ -7,6 +7,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#define PRINT_FRAMES 1
 #define TITLE "ParticleBench"
 #define WIDTH 800
 #define HEIGHT 600
@@ -371,6 +372,15 @@ int main(int argc, char* argv[]) {
 			double variance = sumDiffs/ (double)curFrame;
 			double sd = sqrt(variance);
 			printf("The standard deviation was: %f frames per second.\n", sd);
+			if (PRINT_FRAMES == 1){
+				printf("--:");
+				for (i = 0; i < curFrame; i++) {
+					printf("%f",1/frames[i]);
+					printf(",");
+				}
+				printf(".--");
+			}		
+
 			break;
 		}
 	}

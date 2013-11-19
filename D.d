@@ -3,6 +3,7 @@ import std.math;
 import derelict.glfw3.glfw3;
 import derelict.opengl3.gl;
 
+enum bool PRINT_FRAMES = true;
 enum string TITLE = "ParticleBench";
 enum int WIDTH = 800;
 enum int HEIGHT = 600;
@@ -136,7 +137,7 @@ bool loadCubeToGPU(){
 	glEnableClientState( GL_VERTEX_ARRAY );
 	glEnableClientState( GL_NORMAL_ARRAY );	
 	glVertexPointer( 3, GL_FLOAT, 24, null );	
-	glNormalPointer( GL_FLOAT, 12, null);	
+	glNormalPointer( GL_FLOAT, Vertex.sizeof, cast(void*)(Vertex.normal.offsetof));	
 	glMatrixMode(GL_MODELVIEW);
 
 	return true;
@@ -302,6 +303,15 @@ void main() {
 			double variance = sumDiffs/ cast(double)curFrame;
 			double sd = sqrt(variance);
 			printf("The standard deviation was: %f frames per second.\n", sd);
+			if (PRINT_FRAMES == 1){
+				printf("--:");
+				for (i = 0; i < curFrame; i++) {
+					printf("%f",1/frames[i]);
+					printf(",");
+				}
+				printf(".--");
+			}		
+
 			break;
 		} 
 	}

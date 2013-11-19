@@ -12,6 +12,7 @@ import (
 )
 
 const (
+	PrintFrames = true
 	Title  = "ParticleBench"
 	Width  = 800
 	Height = 600
@@ -37,7 +38,7 @@ const (
 	WindChange    = 2000                 // The maximum change in windspeed per second, in milliseconds
 	MaxWind       = 3                    // Maximum windspeed in seconds before wind is reversed at half speed
 	SpawnInterval = 0.01                 // How often particles are spawned, in seconds
-	RunningTime   = (MaxLife / 1000) * 5 // The total running time of the animation
+	RunningTime   = (MaxLife / 1000) * 5 // The total running time of the animation, in ms
 )
 
 var (
@@ -245,7 +246,7 @@ func main() {
 		if runTmr > MaxLife/1000 { // Start collecting framerate data and profiling after a full MaxLife worth of particles have been spawned
 			frames[curFrame] = frameDur
 			curFrame += 1
-			pprof.StartCPUProfile(f)
+			pprof.StartCPUProfile(f)			
 		}
 		if runTmr >= RunningTime { // Animation complete; calculate framerate mean and standard deviation
 			pprof.StopCPUProfile()
@@ -263,6 +264,14 @@ func main() {
 			variance := sumDiffs / float64(curFrame)
 			sd := math.Sqrt(variance)
 			fmt.Println("The standard deviation was:", sd, "frames per second.")
+			if PrintFrames == true{
+				fmt.Print("--:")
+				for i = 0; i < curFrame; i++ {
+					fmt.Print(1/frames[i])
+					fmt.Print(",")
+				}
+				fmt.Print(".--")
+			}		
 			break
 		}
 
@@ -340,7 +349,8 @@ func loadCubeToGPU() {
 	gl.EnableClientState(gl.VERTEX_ARRAY)
 	gl.EnableClientState(gl.NORMAL_ARRAY)
 	gl.VertexPointer(3, gl.FLOAT, 24, nil)
-	gl.NormalPointer(gl.FLOAT, 12, nil)
+	tmpStruct := Vertex{}
+	gl.NormalPointer(gl.FLOAT, gl.Sizei(unsafe.Sizeof(Vertex{})), gl.Pointer(unsafe.Offsetof(tmpStruct.normal)))
 }
 
 func renderPts() {
@@ -352,8 +362,8 @@ func renderPts() {
 		pt := &Pts[i]
 		gl.PopMatrix()
 		gl.PushMatrix()
-		gl.Translatef(gl.Float((*pt).X), gl.Float((*pt).Y), -gl.Float((*pt).Z))
-		gl.Scalef(gl.Float((*pt).R*2), gl.Float((*pt).R*2), gl.Float((*pt).R*2))
+		gl.Translatef(gl.Float(pt.X), gl.Float(pt.Y), -gl.Float(pt.Z))
+		gl.Scalef(gl.Float(pt.R*2), gl.Float(pt.R*2), gl.Float(pt.R*2))
 		gl.DrawArrays(gl.QUADS, 0, 24)
 	}
 }

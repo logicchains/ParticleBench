@@ -36,7 +36,7 @@ float[4] diffuse = [1.0, 1.0, 1.0, 1];
 float[4] lightPos = [MIN_X + (MAX_X-MIN_X)/2, MAX_Y, MIN_DEPTH, 0];
 
 GLuint gVBO = 0;
-
+ 
 double windX = 0; 
 double windY = 0;
 double windZ = 0;

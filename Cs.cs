@@ -52,6 +52,7 @@ public class Vertex {
 
 
 public static class Globals{
+	public const bool PRINT_FRAMES = true;
 	public const string TITLE = "ParticleBench";
 	public const int WIDTH = 800;
 	public const int HEIGHT = 600;
@@ -192,7 +193,7 @@ public static class Globals{
 		GL.EnableClientState(EnableCap.VertexArray);
 		GL.EnableClientState(EnableCap.NormalArray);
 		GL.VertexPointer(3, VertexPointerType.Float, 24, new IntPtr(0));
-		GL.NormalPointer(NormalPointerType.Float, 12, new IntPtr(0));
+		GL.NormalPointer(NormalPointerType.Float, 24, new IntPtr(12));
 		GL.MatrixMode(MatrixMode.Modelview);
 	}
 
@@ -300,9 +301,9 @@ public static class Globals{
 	public static void initScene() {
 		GL.Enable(EnableCap.DepthTest);
 
-		//GL.Lightfv(EnableCap.Light0, GL.AMBIENT, ambient);		
-		//GL.Lightfv(EnableCap.Light0, GL.DIFFUSE, diffuse);
-		//GL.Lightfv(EnableCap.Light0, GL.POSITION, lightPos);
+		GL.Light(LightName.Light0, LightParameter.Ambient, ambient);		
+		GL.Light(LightName.Light0, LightParameter.Diffuse, diffuse);
+		GL.Light(LightName.Light0, LightParameter.Position, lightPos);
 		GL.Enable(EnableCap.Light0);
 		GL.Enable(EnableCap.Lighting);
 	
@@ -383,6 +384,14 @@ public static class Globals{
 			System.Console.WriteLine("The standard deviation was: ");
 			System.Console.WriteLine(sd);
 			System.Console.WriteLine(" frames per second.\n");
+			if (PRINT_FRAMES == true){
+				System.Console.Write("--:");
+				for (i = 0; i < curFrame; i++) {
+					System.Console.Write(1/frames[i]);
+					System.Console.Write(",");
+				}
+				System.Console.Write(".--");
+			}		
 			System.Environment.Exit(0);
 		}
 	}

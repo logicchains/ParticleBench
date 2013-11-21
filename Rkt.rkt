@@ -3,6 +3,7 @@
 (require RacketGL/opengl/main) ;https://github.com/stephanh42/RacketGL
 (require ffi/vector)
 
+(define *PRINT_FRAMES* #t)
 (define *SCREEN_WIDTH* 800)
 (define *SCREEN_HEIGHT* 600)
 (define *TITLE* "ParticleBench")
@@ -198,7 +199,7 @@
   (glEnableClientState GL_VERTEX_ARRAY)
   (glEnableClientState GL_NORMAL_ARRAY)
   (glVertexPointer 3 GL_FLOAT 24 0)
-  (glNormalPointer GL_FLOAT 12 0)
+  (glNormalPointer GL_FLOAT 24 12)
   (glMatrixMode GL_MODELVIEW)
   )
 
@@ -264,6 +265,11 @@
       (let ([sum 0]) (begin 
                        (for ([i (in-range 0 cur-frame)]) (set! sum (+ sum (vector-ref frames i) ) ) )
                        (display "Average framerate was: ") (display (/ 1 (/ sum cur-frame) ) ) (display " frames per second.\n") )
+                       (if (equal? *PRINT_FRAMES* #t) (begin 
+                                                            (display "--:") 
+                                                            (for ([i (in-range 0 cur-frame)]) (begin (display (/ (vector-ref frames i)) ) (display ",") ) )
+                                                            (display ".--")
+                                                       ) #f ) 
         )
       )
   )

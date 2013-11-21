@@ -11,6 +11,7 @@ use std::num::abs;
 use std::num::pow;
 use std::num::sqrt;
 
+static PrintFrames : bool = true;
 static Title: &'static str  = "ParticleBench";
 static Width : uint  = 800;
 static Height : uint = 600;
@@ -272,7 +273,7 @@ fn loadCubeToGPU() {
 	gl::EnableClientState(gl::VERTEX_ARRAY);
 	gl::EnableClientState(gl::NORMAL_ARRAY);
 	gl::VertexPointer(3, gl::FLOAT, 24, ptr::null());
-	gl::NormalPointer(gl::FLOAT, 12, ptr::null());
+	gl::NormalPointer(gl::FLOAT, 24, ptr::null());
 }
 
 fn initScene() {
@@ -385,6 +386,16 @@ fn main() {
 				let variance = sumDiffs / (curFrame as f64);
 				let sd = sqrt(variance);
 				println!("The standard deviation was: {} frames per second.", sd);
+				if (PrintFrames == true){
+					print!("--:");
+					i = 0;
+					while i < curFrame {
+						print( (1.0/frames[i]).to_str() );
+						print!(",");
+						i+=1;
+					}
+					print!(".--");
+				}						
 				break;
 			}
 	        }

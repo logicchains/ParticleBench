@@ -7,3 +7,9 @@ dmd D.d -L-lDerelictGLFW3 -L-lDerelictUtil -L-ldl -L-lDerelictGL3 -O -release -i
 Go
 go build Go.go
 ./Go
+C#
+mcs CS.cs -r:OpenTK.dll -unsafe
+mono CS.exe
+Racket
+-
+racket Rkt.rkt

@@ -1,9 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <math.h>
-
 #include <iostream>
 #include <string>
 #include <vector>
@@ -14,10 +8,12 @@
 #include <GLFW/glfw3.h>
 
 using std::cout;
+using std::cerr;
 using std::string;
 using std::vector;
 using std::endl;
 
+constexpr bool PRINT_FRAMES = true;
 constexpr const char * TITLE = "ParticleBench";
 constexpr int32_t WIDTH = 800;
 constexpr int32_t HEIGHT = 600;
@@ -108,14 +104,15 @@ struct XorRandGenerator {
     gen ^= gen << 5;
     return gen;
   }
-
-  uint32_t mod( uint32_t & gen, const uint32_t mod ) {
-    return ((*this)( gen ))%mod;
-  }
 };
 
 template<class RandGenerator>
 class Particles {
+  int numPts_;
+  int minPt_;
+  double windX_, windY_, windZ_;
+  vector<Pt> particles_;
+  RandGenerator & randGenerator_;
 public:
   Particles( RandGenerator & randGenerator, const uint32_t numParticles ) :
     randGenerator_( randGenerator ),
@@ -124,7 +121,7 @@ public:
     particles_( numParticles, Pt {0, 0, 0, 0, 0, 0, 0, 0, 0 } ),
     windX_( WINDX ), windY_( WINDY ), windZ_( WINDZ ) {};
 
-  void moveParticles( double secs ) {
+  void moveParticles( const double secs ) {
     for( uint32_t i = minPt_; i < numPts_; i++) {
       Pt & p( particles_[i] );
       if( p.is == false ) {
@@ -144,11 +141,10 @@ public:
     }
   }
 
-  void doWind( const double frameDur, uint32_t & randValue )
-  {
-    windX_ += ( (double)( randGenerator_.mod( randValue, WIND_CHANGE ) ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
-    windY_ += ( (double)( randGenerator_.mod( randValue, WIND_CHANGE ) ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
-    windZ_ += ( (double)( randGenerator_.mod( randValue, WIND_CHANGE ) ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
+  void doWind( const double frameDur, uint32_t & randValue ) {
+    windX_ += ( (double)( randGenerator_( randValue ) % WIND_CHANGE ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
+    windY_ += ( (double)( randGenerator_( randValue ) % WIND_CHANGE ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
+    windZ_ += ( (double)( randGenerator_( randValue ) % WIND_CHANGE ) / WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
     if (fabs(windX_) > MAX_WIND) {
       windX_ *= -0.5;
     }
@@ -160,25 +156,25 @@ public:
     }
   }
 
-  void spawnParticles(double secs, uint32_t & randValue ) {
-    uint32_t num = secs * POINTS_PER_SEC;
+  void spawnParticles( const double secs, uint32_t & randValue ) {
+    const uint32_t num = secs * POINTS_PER_SEC;
     for ( uint32_t i = 0 ; i < num; i++) {
       Pt & pt = particles_[numPts_];
-      pt.X = 0 + (double)( randGenerator_.mod( randValue, START_RANGE ) ) - START_RANGE/2;
+      pt.X = 0 + (double)( randGenerator_( randValue ) % START_RANGE ) - START_RANGE/2;
       pt.Y = START_Y;
-      pt.Z = START_DEPTH + (double)( randGenerator_.mod( randValue, START_RANGE ) ) - START_RANGE/2;
-      pt.VX = (double)( randGenerator_.mod( randValue, MAX_INIT_VEL) );
-      pt.VY = (double)( randGenerator_.mod( randValue, MAX_INIT_VEL) );
-      pt.VZ = (double)( randGenerator_.mod( randValue, MAX_INIT_VEL) );
-      pt.R = (double)( randGenerator_.mod( randValue, (MAX_SCALE*100) ) ) / 200;
-      pt.Life = (double)( randGenerator_.mod( randValue, MAX_LIFE) ) / 1000;
+      pt.Z = START_DEPTH + (double)( randGenerator_( randValue ) % START_RANGE ) - START_RANGE/2;
+      pt.VX = (double)( randGenerator_( randValue ) % MAX_INIT_VEL );
+      pt.VY = (double)( randGenerator_( randValue ) % MAX_INIT_VEL );
+      pt.VZ = (double)( randGenerator_( randValue ) % MAX_INIT_VEL );
+      pt.R = (double)( randGenerator_( randValue ) % (MAX_SCALE*100) ) / 200;
+      pt.Life = (double)( randGenerator_( randValue ) % MAX_LIFE ) / 1000;
       pt.is = true;
       numPts_++;
     }
   }
 
   void checkForCollisions() {
-    for (int i = minPt_; i < numPts_; i++) {
+    for ( uint32_t i = minPt_; i < numPts_; i++) {
       Pt & p( particles_[i] );
       if (p.is == false) {
 	continue;
@@ -235,19 +231,22 @@ public:
       }
     }
   }
-
-private:
-  int numPts_;
-  int minPt_;
-  double windX_, windY_, windZ_;
-  vector<Pt> particles_;
-  RandGenerator & randGenerator_;
 };
 
 template<class RandGenerator>
 class GLRenderer {
+  RandGenerator randGenerator_;
+  uint32_t randValue_;
+  vector<Vertex> vertices_;
+
+  GLuint gVBO_;
+
+  Particles<RandGenerator> particles_;
+
+  double spwnTmr_;
+  double cleanupTmr_;
 public:
-  GLRenderer( uint32_t randSeed ) :
+  GLRenderer( const uint32_t randSeed ) :
     randValue_( randSeed ),
     gVBO_( 0 ),
     particles_( randGenerator_, MAX_PTS ),
@@ -329,24 +328,10 @@ public:
     spwnTmr_ += frameDuration;
     cleanupTmr_ += frameDuration;
   }
-
-private:
-  RandGenerator randGenerator_;
-  uint32_t randValue_;
-  vector<Vertex> vertices_;
-
-  GLuint gVBO_;
-
-  Particles<RandGenerator> particles_;
-
-  double spwnTmr_;
-  double cleanupTmr_;
 };
 
-
 void error_callback(int error, const char* description) {
-  fputs(description, stderr);
-  fflush( stderr );
+  cerr << description << endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -372,11 +357,11 @@ int main(int argc, char* argv[]) {
 
   GLenum glewError = glewInit();
   if( glewError != GLEW_OK ){
-    printf( "Error initializing GLEW! %s\n", glewGetErrorString( glewError ) );
+    cerr << "Error initializing GLEW! " << glewGetErrorString( glewError ) << endl;
     return false;
   }
   if( !GLEW_VERSION_2_1 ){
-    printf( "OpenGL 2.1 not supported!\n" );
+    cerr << "OpenGL 2.1 not supported!" << endl;
     return false;
   }
   glRenderer.setupBuffers();
@@ -402,14 +387,21 @@ int main(int argc, char* argv[]) {
 	sum += frames[i];
       }
       double mean = sum / (double)curFrame;
-      printf("Average framerate was: %f frames per second.\n", 1/mean);
+      cout << "Average framerate was: " << (1/mean) << " frames per second." << endl;
       double sumDiffs = 0.0;
       for (i = 0; i < curFrame; i++) {
 	sumDiffs += pow((1/frames[i])-(1/mean), 2);
       }
       double variance = sumDiffs/ (double)curFrame;
       double sd = sqrt(variance);
-      printf("The standard deviation was: %f frames per second.\n", sd);
+      cout << "The standard deviation was: " << sd << " frames per second." << endl;
+      if( PRINT_FRAMES ) {
+        cout << "--:";
+        for( uint32_t i = 0 ; i < curFrame ; ++i ) {
+          cout << (1/frames[i]) << ',';
+        }
+        cout << ".--";
+      }
       break;
     }
   }

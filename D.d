@@ -36,7 +36,7 @@ float[4] diffuse = [1.0, 1.0, 1.0, 1];
 float[4] lightPos = [MIN_X + (MAX_X-MIN_X)/2, MAX_Y, MIN_DEPTH, 0];
 
 GLuint gVBO = 0;
- 
+
 double windX = 0; 
 double windY = 0;
 double windZ = 0;
@@ -44,12 +44,15 @@ double grav = 0.5;
 
 double initT = 0;
 double endT = 0;
+double gpuInitT = 0;
+double gpuEndT = 0;
 double frameDur = 0;
 double spwnTmr = 0;
 double cleanupTmr = 0;
 double runTmr = 0;
 
 double[RUNNING_TIME * 1000] frames;
+double[RUNNING_TIME * 1000] gpuTimes;
 uint curFrame = 0;
 
 struct Pt {
@@ -272,10 +275,10 @@ void main() {
 		}
 		checkColls();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+		gpuInitT = glfwGetTime();
 		renderPts();
-
 		glfwSwapBuffers(window);
+		gpuEndT = glfwGetTime();
 		glfwPollEvents();
 
 		endT = glfwGetTime();
@@ -285,6 +288,7 @@ void main() {
 		runTmr += frameDur;
 		if (runTmr > MAX_LIFE/1000) { 
 			frames[curFrame] = frameDur;
+                	gpuTimes[curFrame] = gpuEndT - gpuInitT;
 			curFrame += 1;			
 		}
 		
@@ -294,11 +298,19 @@ void main() {
 			for (i = 0; i < curFrame; i++) {
 				sum += frames[i];
 			}
-			double mean = sum / cast(double)curFrame;
-			printf("Average framerate was: %f frames per second.\n", 1/mean);		
+			double frameTimeMean = sum / cast(double)curFrame;
+			printf("Average framerate was: %f frames per second.\n", 1/frameTimeMean);
+
+			sum = 0;
+			for (i = 0; i < curFrame; i++) {
+				sum += gpuTimes[i];
+			}
+			double gpuTimeMean = sum / cast(double)curFrame;
+			printf("Average cpu time was- %f seconds per frame.\n", frameTimeMean - gpuTimeMean);
+
 			double sumDiffs = 0.0;
 			for (i = 0; i < curFrame; i++) {
-				sumDiffs += pow((1/frames[i])-(1/mean), 2);
+				sumDiffs += pow((1/frames[i])-(1/frameTimeMean), 2);
 			}
 			double variance = sumDiffs/ cast(double)curFrame;
 			double sd = sqrt(variance);

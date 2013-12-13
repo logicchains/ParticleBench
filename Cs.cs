@@ -85,6 +85,7 @@ public static class Globals{
 	public static float[] lightPos = {MIN_X + (MAX_X-MIN_X)/2, MAX_Y, MIN_DEPTH, 0};
 
 	public static double[] frames = new double[RUNNING_TIME * 1000];
+	public static double[] gpuTimes = new double[RUNNING_TIME * 1000];
 	public static int curFrame = 0;
 	public static Pt[] Pts = new Pt[MAX_PTS];
 	public static Vertex[] Vertices = new Vertex[24];
@@ -96,6 +97,8 @@ public static class Globals{
 
 	public static double initT = 0;
 	public static double endT = 0;
+	public static double gpuInitT = 0;
+	public static double gpuEndT = 0;
 	public static double frameDur = 0;
 	public static double spwnTmr = 0;
 	public static double cleanupTmr = 0;
@@ -352,9 +355,14 @@ public static class Globals{
 			cleanupTmr = 0;
 		}
 		checkColls();
+
 		GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-		renderPts();
 		milliseconds = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+		gpuInitT = milliseconds;		
+		renderPts();
+	
+		milliseconds = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+		gpuEndT = milliseconds;
 		endT = milliseconds;
 		frameDur = (endT-initT)/1000;
 		spwnTmr += frameDur;
@@ -362,6 +370,7 @@ public static class Globals{
 		runTmr += frameDur;
 		if (runTmr > MAX_LIFE/1000) { 
 			frames[curFrame] = frameDur;
+			gpuTimes[curFrame] = (gpuEndT-gpuInitT)/1000;
 			curFrame += 1;			
 		}
 		
@@ -371,19 +380,29 @@ public static class Globals{
 			for (i = 0; i < curFrame; i++) {
 				sum += frames[i];
 			}
-			double mean = sum / (double)curFrame;
-			System.Console.WriteLine("Average framerate was: ");
-			System.Console.WriteLine(1/mean);
-			System.Console.WriteLine(" frames per second.\n");		
+			double frameTimeMean = sum / (double)curFrame;
+			System.Console.Write("Average framerate was: ");
+			System.Console.Write(1/frameTimeMean);
+			System.Console.Write(" frames per second.\n");		
+
+			sum = 0;
+			for (i = 0; i < curFrame; i++) {
+				sum += gpuTimes[i];
+			}
+			double gpuTimeMean = sum / (double)curFrame;
+			System.Console.Write("Average cpu time was- ");
+			System.Console.Write(frameTimeMean - gpuTimeMean);
+			System.Console.Write(" seconds per frame.\n");		
+
 			double sumDiffs = 0.0;
 			for (i = 0; i < curFrame; i++) {
-				sumDiffs += Math.Pow((1/frames[i])-(1/mean), 2);
+				sumDiffs += Math.Pow((1/frames[i])-(1/frameTimeMean), 2);
 			}
 			double variance = sumDiffs/(double)curFrame;
 			double sd = Math.Sqrt(variance);
-			System.Console.WriteLine("The standard deviation was: ");
-			System.Console.WriteLine(sd);
-			System.Console.WriteLine(" frames per second.\n");
+			System.Console.Write("The standard deviation was: ");
+			System.Console.Write(sd);
+			System.Console.Write(" frames per second.\n");
 			if (PRINT_FRAMES == true){
 				System.Console.Write("--:");
 				for (i = 0; i < curFrame; i++) {

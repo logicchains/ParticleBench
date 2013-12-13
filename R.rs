@@ -48,14 +48,16 @@ static lightPos : [GLfloat, ..4] = [( MinX + (MaxX-MinX)/2.0) as f32, MaxY as f3
 
 static mut frameInitT: f64= 0.0;
 static mut frameEndT:  f64= 0.0;
+static mut gpuInitT:   f64= 0.0;
+static mut gpuEndT:    f64= 0.0;
 static mut frameDur:   f64= 0.0;
 static mut spwnTmr:    f64= 0.0;
 static mut cleanupTmr: f64= 0.0;
 static mut runTmr:     f64= 0.0;
 
 static mut frames :[f64, .. RunningTime * 1000] = [0.0, .. RunningTime * 1000];
+static mut gpuTimes :[f64, .. RunningTime * 1000] = [0.0, .. RunningTime * 1000];
 static mut curFrame: u64 = 0;
-
 
 static mut windX: f64 = 0.0;
 static mut windY: f64 = 0.0;
@@ -356,9 +358,12 @@ fn main() {
 
 			checkColls();
 			gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+			gpuInitT = glfw::get_time();
 			renderPts();	
 			window.swap_buffers();
+			gpuEndT = glfw::get_time();
 			glfw::poll_events();
+
 			frameEndT = glfw::get_time();
 			frameDur = frameEndT-frameInitT;
 			spwnTmr += frameDur;
@@ -366,6 +371,7 @@ fn main() {
 			runTmr += frameDur;
 			if runTmr > MaxLife as f64/1000.0{
 				frames[curFrame] = frameDur;
+				gpuTimes[curFrame] = gpuEndT-gpuInitT;
 				curFrame += 1;
 			}
 			if runTmr >= RunningTime as f64 { // Animation complete; calculate framerate mean and standard deviation
@@ -375,12 +381,21 @@ fn main() {
 					sum += frames[i];
 					i+=1;
 				}
-				let mean  = sum / (curFrame as f64);
-				println!("Average framerate was: {} frames per second.",1.0/mean);
+				let frameTimeMean  = sum / (curFrame as f64);
+				println!("Average framerate was: {} frames per second.", 1.0/frameTimeMean);
+
+				sum = 0.0;
+				while i < curFrame {
+					sum += gpuTimes[i];
+					i+=1;
+				}
+				let gpuTimeMean  = sum / (curFrame as f64);
+				println!("Average cpu time was- {} seconds per frame.", frameTimeMean - gpuTimeMean)
+
 				let mut sumDiffs = 0.0;
 				i = 0;
 				while i < curFrame {
-					sumDiffs += pow( (1.0/(frames[i])-1.0/(mean) ) as f64, 2.0);
+					sumDiffs += pow( (1.0/(frames[i])-1.0/(frameTimeMean) ) as f64, 2.0);
 					i+=1;
 				}
 				let variance = sumDiffs / (curFrame as f64);

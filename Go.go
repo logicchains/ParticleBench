@@ -53,13 +53,16 @@ var (
 
 	frameInitT time.Time // Reused variable for timing frames
 	frameEndT  time.Time // Reused variable for timing frames
+	gpuInitT   time.Time // Reused variable for timing gpu use
+	gpuEndT    time.Time // Reused variable for timing gpu use
 	frameDur   float64   // Reused variable for storing the duration of the last frame
 	spwnTmr    float64   // Timer for particle spawning
 	cleanupTmr float64   // Timer for cleaning up the particle array
 	runTmr     float64   // Timer of total running timer
 
-	frames   [RunningTime * 1000]float64 // Array for storing the length of each frame
-	curFrame uint64                      // The current number of frames that have elapsed
+	frames   [RunningTime * 1000]float64   // Array for storing the length of each frame
+	gpuTimes   [RunningTime * 1000]float64 // Array for storing the cpu time spent before swapping buffers for each frame
+	curFrame uint64                        // The current number of frames that have elapsed
 
 	windX float64 = 0 // Windspeed
 	windY float64 = 0
@@ -234,10 +237,13 @@ func main() {
 		}
 		checkColls()
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
-		renderPts()
+		
+		gpuInitT = time.Now()
+		renderPts()		
 		window.SwapBuffers()
+		gpuEndT = time.Now()
 		glfw.PollEvents()
+
 		frameEndT = time.Now()
 		frameDur = frameEndT.Sub(frameInitT).Seconds() // Calculate the length of the previous frame
 		spwnTmr += frameDur
@@ -245,6 +251,7 @@ func main() {
 		runTmr += frameDur
 		if runTmr > MaxLife/1000 { // Start collecting framerate data and profiling after a full MaxLife worth of particles have been spawned
 			frames[curFrame] = frameDur
+			gpuTimes[curFrame] = gpuEndT.Sub(gpuInitT).Seconds()
 			curFrame += 1
 			pprof.StartCPUProfile(f)			
 		}
@@ -255,11 +262,19 @@ func main() {
 			for i = 0; i < curFrame; i++ {
 				sum += frames[i]
 			}
-			mean := sum / float64(curFrame)
-			fmt.Println("Average framerate was:", 1/mean, "frames per second.")
+			frameTimeMean := sum / float64(curFrame)
+			fmt.Println("Average framerate was:", 1/frameTimeMean, "frames per second.")
+
+			sum = 0
+			for i = 0; i < curFrame; i++ {
+				sum += gpuTimes[i]
+			}
+			gpuTimeMean := sum / float64(curFrame)
+			fmt.Println("Average cpu time was-", frameTimeMean - gpuTimeMean, "seconds per frame.")
+
 			sumDiffs := 0.0
 			for i = 0; i < curFrame; i++ {
-				sumDiffs += math.Pow(1/frames[i]-1/mean, 2)
+				sumDiffs += math.Pow(1/frames[i]-1/frameTimeMean, 2)
 			}
 			variance := sumDiffs / float64(curFrame)
 			sd := math.Sqrt(variance)

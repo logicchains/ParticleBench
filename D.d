@@ -5,54 +5,60 @@ import derelict.opengl3.gl;
 
 enum bool PRINT_FRAMES = true;
 enum string TITLE = "ParticleBench";
-enum int WIDTH = 800;
-enum int HEIGHT = 600;
 
-enum int MIN_X = -80;
-enum int MAX_X = 80;
-enum int MIN_Y = -90;
-enum int MAX_Y = 50;
-enum int MIN_DEPTH = 50;
-enum int MAX_DEPTH = 250;
+enum : int { 
+	WIDTH = 800,
+	HEIGHT = 600,
 
-enum int START_RANGE = 15;
-enum int START_X = (MIN_X + (MIN_X+MAX_X)/2);
-enum int START_Y = MAX_Y;
-enum int START_DEPTH = (MIN_DEPTH + (MIN_DEPTH+MAX_DEPTH)/2);
+	MIN_X = -80,
+	MAX_X = 80,
+	MIN_Y = -90,
+	MAX_Y = 50,
+	MIN_DEPTH = 50,
+	MAX_DEPTH = 250,
 
-enum int POINTS_PER_SEC = 2000;
-enum int MAX_INIT_VEL = 7;
-enum int MAX_LIFE = 5000;
-enum int MAX_SCALE = 4;
+	START_RANGE = 15,
+	START_X = (MIN_X + (MIN_X + MAX_X) / 2),
+	START_Y = MAX_Y,
+	START_DEPTH = (MIN_DEPTH + (MIN_DEPTH + MAX_DEPTH) / 2),
 
-enum int WIND_CHANGE = 2000;
-enum int MAX_WIND = 3;
-enum double SPAWN_INTERVAL = 0.01 ;
-enum int RUNNING_TIME = ((MAX_LIFE / 1000) * 5);
-enum int MAX_PTS = (RUNNING_TIME * POINTS_PER_SEC);
+	POINTS_PER_SEC = 2000,
+	MAX_INIT_VEL = 7,
+	MAX_LIFE = 5000,
+	MAX_SCALE = 4,
+
+	WIND_CHANGE = 2000,
+	MAX_WIND = 3,
+	RUNNING_TIME = ((MAX_LIFE / 1000) * 5),
+	MAX_PTS = (RUNNING_TIME * POINTS_PER_SEC)
+}
+enum double SPAWN_INTERVAL = 0.01;
 
 float[4] ambient = [0.8, 0.05, 0.1, 1];
 float[4] diffuse = [1.0, 1.0, 1.0, 1];
-float[4] lightPos = [MIN_X + (MAX_X-MIN_X)/2, MAX_Y, MIN_DEPTH, 0];
+float[4] lightPos = [MIN_X + (MAX_X - MIN_X) / 2, MAX_Y, MIN_DEPTH, 0];
 
 GLuint gVBO = 0;
 
-double windX = 0; 
-double windY = 0;
-double windZ = 0;
-double grav = 0.5;
+double
+	windX = 0, 
+	windY = 0,
+	windZ = 0,
+	grav = 0.5,
 
-double initT = 0;
-double endT = 0;
-double gpuInitT = 0;
-double gpuEndT = 0;
-double frameDur = 0;
-double spwnTmr = 0;
-double cleanupTmr = 0;
-double runTmr = 0;
+	initT = 0,
+	endT = 0,
+	gpuInitT = 0,
+	gpuEndT = 0,
+	frameDur = 0,
+	spwnTmr = 0,
+	cleanupTmr = 0,
+	runTmr = 0;
 
-double[RUNNING_TIME * 1000] frames;
-double[RUNNING_TIME * 1000] gpuTimes;
+double[RUNNING_TIME * 1000] 
+	frames,
+	gpuTimes;
+
 uint curFrame = 0;
 
 struct Pt {
@@ -60,21 +66,23 @@ struct Pt {
 	bool alive;
 };
 Pt[MAX_PTS] Pts;
-int numPts = 0;      
-int minPt = 0;       
+int
+	numPts = 0,      
+	minPt = 0;
+       
 uint seed = 1234569;
-
 
 struct Vertex {
 	GLfloat pos[3];
 	GLfloat normal[3];
 };
 
-Vertex[ 24 ] Vertices = void;
-uint curVertex = 0;
-uint curNormalX = 0;
-uint curNormalY = 0;
-uint curNormalZ = 0;
+Vertex[24] Vertices = void;
+uint
+	curVertex = 0,
+	curNormalX = 0,
+	curNormalY = 0,
+	curNormalZ = 0;
 
 void newVertex(int x,int y,int z){
 	Vertex thisVertex;
@@ -133,14 +141,14 @@ bool loadCubeToGPU(){
 	newVertex(-1, 1, 1);
 	newVertex(-1, 1, -1);
 
-	glGenBuffers( 1, &gVBO );
-	glBindBuffer( GL_ARRAY_BUFFER, gVBO );
-	glBufferData( GL_ARRAY_BUFFER, 24 * Vertex.sizeof, Vertices.ptr, GL_STATIC_DRAW );
+	glGenBuffers( 1, &gVBO);
+	glBindBuffer( GL_ARRAY_BUFFER, gVBO);
+	glBufferData( GL_ARRAY_BUFFER, 24 * Vertex.sizeof, Vertices.ptr, GL_STATIC_DRAW);
 
-	glEnableClientState( GL_VERTEX_ARRAY );
-	glEnableClientState( GL_NORMAL_ARRAY );	
-	glVertexPointer( 3, GL_FLOAT, 24, null );	
-	glNormalPointer( GL_FLOAT, Vertex.sizeof, cast(void*)(Vertex.normal.offsetof));	
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glEnableClientState(GL_NORMAL_ARRAY);	
+	glVertexPointer(3, GL_FLOAT, 24, null);	
+	glNormalPointer(GL_FLOAT, Vertex.sizeof, cast(void*)(Vertex.normal.offsetof));	
 	glMatrixMode(GL_MODELVIEW);
 
 	return true;
@@ -177,13 +185,13 @@ void spwnPts(double secs) {
 	uint i = 0;
 	for (; i < num; i++) {
 		Pt pt;
-		pt.X = 0 + cast(double)(xorRand()%START_RANGE) - START_RANGE/2;
+		pt.X = 0 + cast(double)(xorRand() % START_RANGE) - START_RANGE / 2;
 		pt.Y = START_Y;
-		pt.Z = START_DEPTH + cast(double)(xorRand()%START_RANGE) - START_RANGE/2;
+		pt.Z = START_DEPTH + cast(double)(xorRand() % START_RANGE) - START_RANGE / 2;
 		pt.VX = cast(double)(xorRand() % MAX_INIT_VEL);
 		pt.VY = cast(double)(xorRand() % MAX_INIT_VEL);
 		pt.VZ = cast(double)(xorRand() % MAX_INIT_VEL);
-		pt.R = cast(double)(xorRand() % (MAX_SCALE*100)) / 200;
+		pt.R = cast(double)(xorRand() % (MAX_SCALE * 100)) / 200;
 		pt.Life = cast(double)(xorRand() % MAX_LIFE) / 1000;
 		pt.alive = true;
 		Pts[numPts] = pt;
@@ -192,9 +200,9 @@ void spwnPts(double secs) {
 }
 
 void doWind() {
-	windX += ( cast(double)(xorRand() % WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
-	windY += ( cast(double)(xorRand() % WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
-	windZ += ( cast(double)(xorRand() % WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur;
+	windX += ( cast(double)(xorRand() % WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE / 2000) * frameDur;
+	windY += ( cast(double)(xorRand() % WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE / 2000) * frameDur;
+	windZ += ( cast(double)(xorRand() % WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE / 2000) * frameDur;
 	if (fabs(windX) > MAX_WIND) {
 		windX *= -0.5;
 	}
@@ -269,7 +277,7 @@ void main() {
 			spwnPts(SPAWN_INTERVAL);
 			spwnTmr -= SPAWN_INTERVAL;
 		}
-		if (cleanupTmr >= cast(double)(MAX_LIFE)/1000) {
+		if (cleanupTmr >= cast(double)(MAX_LIFE) / 1000) {
 			cleanupPtPool();
 			cleanupTmr = 0;
 		}
@@ -286,7 +294,7 @@ void main() {
 		spwnTmr += frameDur;
 		cleanupTmr += frameDur;
 		runTmr += frameDur;
-		if (runTmr > MAX_LIFE/1000) { 
+		if (runTmr > MAX_LIFE / 1000) { 
 			frames[curFrame] = frameDur;
                 	gpuTimes[curFrame] = gpuEndT - gpuInitT;
 			curFrame += 1;			
@@ -299,7 +307,7 @@ void main() {
 				sum += frames[i];
 			}
 			double frameTimeMean = sum / cast(double)curFrame;
-			printf("Average framerate was: %f frames per second.\n", 1/frameTimeMean);
+			printf("Average framerate was: %f frames per second.\n", 1 / frameTimeMean);
 
 			sum = 0;
 			for (i = 0; i < curFrame; i++) {
@@ -310,7 +318,7 @@ void main() {
 
 			double sumDiffs = 0.0;
 			for (i = 0; i < curFrame; i++) {
-				sumDiffs += pow((1/frames[i])-(1/frameTimeMean), 2);
+				sumDiffs += pow((1 / frames[i])-(1 / frameTimeMean), 2);
 			}
 			double variance = sumDiffs/ cast(double)curFrame;
 			double sd = sqrt(variance);
@@ -318,7 +326,7 @@ void main() {
 			if (PRINT_FRAMES == 1){
 				printf("--:");
 				for (i = 0; i < curFrame; i++) {
-					printf("%f",1/frames[i]);
+					printf("%f",1 / frames[i]);
 					printf(",");
 				}
 				printf(".--");
@@ -327,7 +335,6 @@ void main() {
 			break;
 		} 
 	}
-
 	glfwDestroyWindow(window);
 	glfwTerminate();
 }
@@ -366,7 +373,7 @@ void renderPts(){
 		glPopMatrix();
 		glPushMatrix();
 		glTranslatef(pt.X, pt.Y, -pt.Z);
-		glScalef(pt.R * 2, pt.R*2, pt.R*2);
-		glDrawArrays( GL_QUADS, 0, 24 );	
+		glScalef(pt.R * 2, pt.R * 2, pt.R * 2);
+		glDrawArrays(GL_QUADS, 0, 24);	
 	}
 }

@@ -1,4 +1,3 @@
-
 import org.lwjgl.LWJGLException;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.DisplayMode;
@@ -28,7 +27,8 @@ class Vertex {
 }
 
 class Globals {
-
+    
+    public static final Boolean PRINT_FRAMES = true;
     public static final String TITLE = "ParticleBench";
     public static final int WIDTH = 800;
     public static final int HEIGHT = 600;
@@ -61,6 +61,7 @@ class Globals {
     public static final float[] lightPos = {MIN_X + (MAX_X - MIN_X) / 2, MAX_Y, MIN_DEPTH, 0};
 
     public static double[] frames = new double[RUNNING_TIME * 1000];
+    public static double[] gpuTimes = new double[RUNNING_TIME * 1000];   
     public static int curFrame = 0;
     public static Pt[] Pts = new Pt[MAX_PTS];
     public static Vertex[] Vertices = new Vertex[24];
@@ -74,6 +75,8 @@ class Globals {
 
     public static double initT = 0;
     public static double endT = 0;
+    public static double gpuInitT = 0;
+    public static double gpuEndT = 0;
     public static double frameDur = 0;
     public static double spwnTmr = 0;
     public static double cleanupTmr = 0;
@@ -353,9 +356,10 @@ public class ParticleBench {
             }
             Globals.checkColls();
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-
+            Globals.gpuInitT = System.currentTimeMillis();
             Globals.renderPts();
             Display.update();
+            Globals.gpuEndT = System.currentTimeMillis();          
             Globals.endT = System.currentTimeMillis();
             Globals.frameDur = (Globals.endT - Globals.initT) / 1000;
             Globals.spwnTmr += Globals.frameDur;
@@ -363,6 +367,7 @@ public class ParticleBench {
             Globals.runTmr += Globals.frameDur;
             if (Globals.runTmr > Globals.MAX_LIFE / 1000) {
                 Globals.frames[Globals.curFrame] = Globals.frameDur;
+                Globals.gpuTimes[Globals.curFrame] = (Globals.gpuEndT - Globals.gpuInitT) / 1000;
                 Globals.curFrame += 1;
             }
 
@@ -372,19 +377,32 @@ public class ParticleBench {
                 for (i = 0; i < Globals.curFrame; i++) {
                     sum += Globals.frames[i];
                 }
-                double mean = sum / (double) Globals.curFrame;
-                System.out.println("Average framerate was: ");
-                System.out.println(1 / mean);
-                System.out.println(" frames per second.\n");
+                double frameRateMean = sum / (double) Globals.curFrame;
+                System.out.printf("Average framerate was: %f frames per second.\n", 1/frameRateMean);
+                             
+		sum = 0;
+		for (i = 0; i < Globals.curFrame; i++) {
+			sum += Globals.gpuTimes[i];
+		}
+		double gpuTimeMean = sum / (double)Globals.curFrame;
+		System.out.printf("Average cpu time was- %f seconds per frame.\n", frameRateMean - gpuTimeMean);		
+                
                 double sumDiffs = 0.0;
                 for (i = 0; i < Globals.curFrame; i++) {
-                    sumDiffs += Math.pow((1 / Globals.frames[i]) - (1 / mean), 2);
+                    sumDiffs += Math.pow((1 / Globals.frames[i]) - (1 / frameRateMean), 2);
                 }
                 double variance = sumDiffs / (double) Globals.curFrame;
                 double sd = Math.sqrt(variance);
-                System.out.println("The standard deviation was: ");
-                System.out.println(sd);
-                System.out.println(" frames per second.\n");
+                System.out.printf("The standard deviation was: %f frames per second.\n", sd);		                
+                
+                if (Globals.PRINT_FRAMES == true){
+				System.out.printf("--:");
+				for (i = 0; i < Globals.curFrame; i++) {
+					System.out.printf("%f",1/Globals.frames[i]);
+					System.out.printf(",");
+				}
+				System.out.printf(".--");
+			}                
                 break mainLoop;
             }
         }

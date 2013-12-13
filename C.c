@@ -40,12 +40,15 @@
 
 double initT = 0;
 double endT = 0;
+double gpuInitT = 0;
+double gpuEndT = 0;
 double frameDur = 0;
 double spwnTmr = 0;
 double cleanupTmr = 0;
 double runTmr = 0;
 
 double frames[RUNNING_TIME * 1000];
+double gpuTimes[RUNNING_TIME * 1000];
 uint64_t curFrame = 0;
 
 struct Pt {
@@ -341,10 +344,10 @@ int main(int argc, char* argv[]) {
 		}
 		checkColls();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+		gpuInitT = glfwGetTime();
 		renderPts();
-
 		glfwSwapBuffers(window);
+		gpuEndT = glfwGetTime();
 		glfwPollEvents();
 
 		endT = glfwGetTime();
@@ -354,6 +357,7 @@ int main(int argc, char* argv[]) {
 		runTmr += frameDur;
 		if (runTmr > MAX_LIFE/1000) { 
 			frames[curFrame] = frameDur;
+                	gpuTimes[curFrame] = gpuEndT - gpuInitT;
 			curFrame += 1;			
 		}
 		
@@ -363,11 +367,19 @@ int main(int argc, char* argv[]) {
 			for (i = 0; i < curFrame; i++) {
 				sum += frames[i];
 			}
-			double mean = sum / (double)curFrame;
-			printf("Average framerate was: %f frames per second.\n", 1/mean);		
+			double frameTimeMean = sum / (double)curFrame;
+			printf("Average framerate was: %f frames per second.\n", 1/frameTimeMean);		
+
+			sum = 0;
+			for (i = 0; i < curFrame; i++) {
+				sum += gpuTimes[i];
+			}
+			double gpuTimeMean = sum / (double)curFrame;
+			printf("Average cpu time was- %f seconds per frame.\n", frameTimeMean - gpuTimeMean);
+
 			double sumDiffs = 0.0;
 			for (i = 0; i < curFrame; i++) {
-				sumDiffs += pow((1/frames[i])-(1/mean), 2);
+				sumDiffs += pow((1/frames[i])-(1/frameTimeMean), 2);
 			}
 			double variance = sumDiffs/ (double)curFrame;
 			double sd = sqrt(variance);

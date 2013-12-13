@@ -13,6 +13,9 @@ rustc R.rs --opt-level=3
 C#
 mcs CS.cs -r:OpenTK.dll -unsafe
 mono CS.exe
+Java
+javac -classpath lwjgl-2.9.0/jar/jinput.jar:lwjgl-2.9.0/jar/lwjgl.jar:lwjgl-2.9.0/jar/lwjgl_util.jar ./ParticleBench.java
+java -classpath lwjgl-2.9.0/jar/jinput.jar:lwjgl-2.9.0/jar/lwjgl.jar:lwjgl-2.9.0/jar/lwjgl_util.jar:. -Djava.library.path=lwjgl-2.9.0/native/linux ParticleBench
 Racket
 -
 racket Rkt.rkt

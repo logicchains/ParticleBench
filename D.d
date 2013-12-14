@@ -3,10 +3,9 @@ import std.math;
 import derelict.glfw3.glfw3;
 import derelict.opengl3.gl;
 
-enum bool PRINT_FRAMES = true;
-enum string TITLE = "ParticleBench";
-
-enum : int { 
+enum { 
+	PRINT_FRAMES = true,
+	TITLE = "ParticleBench",
 	WIDTH = 800,
 	HEIGHT = 600,
 
@@ -24,6 +23,7 @@ enum : int {
 
 	POINTS_PER_SEC = 2000,
 	MAX_INIT_VEL = 7,
+	SPAWN_INTERVAL = 0.01,
 	MAX_LIFE = 5000,
 	MAX_SCALE = 4,
 
@@ -32,7 +32,6 @@ enum : int {
 	RUNNING_TIME = ((MAX_LIFE / 1000) * 5),
 	MAX_PTS = (RUNNING_TIME * POINTS_PER_SEC)
 }
-enum double SPAWN_INTERVAL = 0.01;
 
 float[4] ambient = [0.8, 0.05, 0.1, 1];
 float[4] diffuse = [1.0, 1.0, 1.0, 1];
@@ -77,7 +76,7 @@ struct Vertex {
 	GLfloat normal[3];
 };
 
-Vertex[ 24 ] Vertices = void;
+Vertex[24] Vertices = void;
 uint
 	curVertex = 0,
 	curNormalX = 0,

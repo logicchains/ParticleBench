@@ -271,8 +271,6 @@ void main() {
 	loadCubeToGPU();
 	while (!glfwWindowShouldClose(window)){
 		initT = glfwGetTime();
-		movPts(frameDur);
-		doWind();
 		if (spwnTmr >= SPAWN_INTERVAL) {
 			spwnPts(SPAWN_INTERVAL);
 			spwnTmr -= SPAWN_INTERVAL;
@@ -281,7 +279,9 @@ void main() {
 			cleanupPtPool();
 			cleanupTmr = 0;
 		}
+		doWind();
 		checkColls();
+		movPts(frameDur);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		gpuInitT = glfwGetTime();
 		renderPts();

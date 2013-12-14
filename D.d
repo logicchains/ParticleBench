@@ -77,7 +77,7 @@ struct Vertex {
 	GLfloat normal[3];
 };
 
-Vertex[24] Vertices = void;
+Vertex[ 24 ] Vertices = void;
 uint
 	curVertex = 0,
 	curNormalX = 0,
@@ -162,7 +162,7 @@ uint xorRand() {
 }
 
 void movPts(double secs) {
-	for (int i = minPt; i <= numPts; i++) {
+	foreach (i; minPt .. numPts){
 		if (Pts[i].alive == false) {
 			continue;
 		}
@@ -215,7 +215,7 @@ void doWind() {
 }
 
 void checkColls() {
-	for (int i = minPt; i <= numPts; i++) {
+	foreach (i; minPt .. numPts){
 		if (Pts[i].alive == false) {
 			continue;
 		}
@@ -247,7 +247,7 @@ void checkColls() {
 }
 
 void cleanupPtPool() {
-	for (int i = minPt; i <= numPts; i++) {
+	foreach (i; minPt .. numPts){
 		if (Pts[i].alive == true) {
 			minPt = i;
 			break;
@@ -302,22 +302,21 @@ void main() {
 		
 		if (runTmr >= RUNNING_TIME) {
 			double sum = 0;
-			uint i = 0;
-			for (i = 0; i < curFrame; i++) {
+			foreach (i; 0 .. curFrame){
 				sum += frames[i];
 			}
 			double frameTimeMean = sum / cast(double)curFrame;
 			printf("Average framerate was: %f frames per second.\n", 1 / frameTimeMean);
 
 			sum = 0;
-			for (i = 0; i < curFrame; i++) {
+			foreach (i; 0 .. curFrame){
 				sum += gpuTimes[i];
 			}
 			double gpuTimeMean = sum / cast(double)curFrame;
 			printf("Average cpu time was- %f seconds per frame.\n", frameTimeMean - gpuTimeMean);
 
 			double sumDiffs = 0.0;
-			for (i = 0; i < curFrame; i++) {
+			foreach (i; 0 .. curFrame){
 				sumDiffs += pow((1 / frames[i])-(1 / frameTimeMean), 2);
 			}
 			double variance = sumDiffs/ cast(double)curFrame;
@@ -325,7 +324,7 @@ void main() {
 			printf("The standard deviation was: %f frames per second.\n", sd);
 			if (PRINT_FRAMES == 1){
 				printf("--:");
-				for (i = 0; i < curFrame; i++) {
+				foreach (i; 0 .. curFrame){
 					printf("%f",1 / frames[i]);
 					printf(",");
 				}
@@ -364,8 +363,8 @@ void initScene() {
 	return;
 }
 
-void renderPts(){	
-	for (int i = minPt; i <= numPts; i++) {
+void renderPts(){
+	foreach (i; minPt .. numPts){	
 		if (Pts[i].alive == false) {
 			continue;
 		}

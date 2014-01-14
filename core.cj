@@ -189,7 +189,8 @@
   (GL11/glPopMatrix)
   (GL11/glPushMatrix)
   (GL11/glTranslatef (:x apt) (:y apt) (-(:z apt)) )
-  (GL11/glScalef 10 10 10 )
+  (GL11/glScalef (* (:R apt) 2) (* (:R apt) 2) (* (:R apt) 2) )
+  ;(GL11/glScalef 10 10 10 )
   (gltest-cube)
   ;(GL11/glDrawArrays GL11/GL_QUADS 0 24)
   apt)
@@ -207,10 +208,13 @@
                  (* (rand) MAX_LIFE)
                  true)] new-pt))
 
+(defn make-calls [n func]
+  (take n (repeatedly func)))
+
 (ann spwn-pts [Float (Vec pt) -> (Vec pt)]) 
 (defn spwn-pts [secs pt-vec]
-  (let [num (* secs POINTS_PER_SEC)]
-    conj pt-vec (vec (repeat num (make-new-pt)))))
+ (let [num (* secs POINTS_PER_SEC)]
+   (into pt-vec (make-calls num make-new-pt))))
 
 (ann mov-pt [Float environ pt -> pt])
 (defn mov-pt [secs env apt]

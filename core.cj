@@ -258,8 +258,11 @@
 (defn check-colls [vec]
   (map check-coll vec))
 
-(ann do-wind [env -> env])
-(defn do-wind [env]
+(defn is-alive [pt]
+  (:is pt))
+
+(ann do-wind [env float -> env])
+(defn do-wind [env frame-dur]
   (assoc env :windX (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE 2) ) frame-dur) (:windX env)) )
   (assoc env :windY (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE 2) ) frame-dur) (:windY env)) )
   (assoc env :windZ (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE 2) ) frame-dur) (:windZ env)) )
@@ -276,12 +279,12 @@
   (def init-t (System/currentTimeMillis))
   (GL11/glClear GL11/GL_COLOR_BUFFER_BIT)
   (GL11/glClear GL11/GL_DEPTH_BUFFER_BIT)
-  (let [new-vec (->> (spwn-pts prev-frame-length pts) (mov-pts prev-frame-length env) (check-colls) )]
+  (let [new-vec (->> (spwn-pts prev-frame-length pts) (mov-pts prev-frame-length env) (filter is-alive) (check-colls) )]
     (dorun (map render-pt new-vec))
     (Display/update)
     (def end-t (System/currentTimeMillis))
     (if (> (/ (- end-t start-t) 1000) 5) (end) false)
-    (recur new-vec (do-wind env) (/ (- end-t init-t) 1000))))
+    (recur new-vec (do-wind env (/ (- end-t init-t) 1000)) (/ (- end-t init-t) 1000))))
 
 (defn main []
   (init)

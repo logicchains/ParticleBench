@@ -26,7 +26,7 @@
 (def ^:const  POINTS_PER_SEC 2000)
 (def ^:const  MAX_INIT_VEL 7.0)
 (def ^:const  MAX_LIFE 2)
-(def ^:const  MAX_SCALE 4.0)
+(def ^:const  MAX_SCALE 5.0)
 
 (def ^:const  WIND_CHANGE 2.0)
 (def ^:const  MAX_WIND 3.0)
@@ -198,6 +198,9 @@
   ;(GL11/glDrawArrays GL11/GL_QUADS 0 24)
   apt)
   
+(defn end[]
+  (Display/destroy))
+
 (ann make-new-pt [-> pt])
 (defn make-new-pt []
   (let [new-pt (->pt 
@@ -235,10 +238,10 @@
 
 (ann mov-pts [Float environ (Vec pt) -> (Vec pt)])
 (defn mov-pts [^Float secs ^environ env ^clojure.lang.PersistentVector vec]
-  (map #(mov-pt secs env %) vec))
+  (pmap #(mov-pt secs env %) vec))
   
 (ann check-coll [pt ->])
-(defn check-coll [^pt apt]  
+(defn check-coll [^pt apt]   
   (if (< (:x apt ) MIN_X) (
                             (assoc apt :x  (+ MIN_X (:R apt)) )
                             (assoc apt :vx  (* (:vx apt) -1.1)) ) false)
@@ -262,7 +265,7 @@
 
 (ann check-colls [(Vec pt) -> (Vec pt)])
 (defn check-colls [^clojure.lang.PersistentVector vec]
-  (map check-coll vec))
+  (pmap check-coll vec))
 
 (defn is-alive [^pt pt]
   (:is pt))
@@ -277,9 +280,6 @@
   (if (> (math/abs (:windZ env)) MAX_WIND) (assoc env :windZ (* (:windZ env) -0.5) ) false)
   env
   )
-
-(defn end[]
-  (Display/destroy))
  
 (defn print-x [pt] (print (:z pt)) (print "\n"))
 
@@ -288,10 +288,10 @@
   (GL11/glClear GL11/GL_COLOR_BUFFER_BIT)
   (GL11/glClear GL11/GL_DEPTH_BUFFER_BIT)
   ;(let [new-vec (->> (spwn-pts prev-frame-length pts) (mov-pts prev-frame-length env) (filter is-alive) (check-colls) )]
-  (let [new-vec (->> (spwn-pts prev-frame-length pts) (filter is-alive)  (mov-pts prev-frame-length env) )]
+  (let [new-vec (->> (spwn-pts prev-frame-length pts) (mov-pts prev-frame-length env) (filter is-alive) )]
     (dorun (map render-pt new-vec))
-    (dorun (map print-x new-vec))    
-    ;(def moved-vecs (mov-pts prev-frame-length env new-vec))
+    ;(dorun (map print-x new-vec))    
+    ;(def moved-vecs ((check-colls) new-vec))
     (Display/update)
     (def end-t (System/currentTimeMillis))
     (if (> (/ (- end-t start-t) 1000) 3) (end) false)

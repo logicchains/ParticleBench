@@ -25,7 +25,7 @@
 
 (def ^:const  POINTS_PER_SEC 2000)
 (def ^:const  MAX_INIT_VEL 7.0)
-(def ^:const  MAX_LIFE 5)
+(def ^:const  MAX_LIFE 2)
 (def ^:const  MAX_SCALE 4.0)
 
 (def ^:const  WIND_CHANGE 2.0)
@@ -191,7 +191,7 @@
   (GL11/glMatrixMode GL11/GL_MODELVIEW)
   (GL11/glPopMatrix)
   (GL11/glPushMatrix)
-  (GL11/glTranslatef (:x apt) (:y apt) (-(:z apt)) )
+  (GL11/glTranslatef (:x apt) (:y apt) (- 0 (:z apt)) )
   (GL11/glScalef (* (:R apt) 2) (* (:R apt) 2) (* (:R apt) 2) )
   ;(GL11/glScalef 10 10 10 )
   (gltest-cube)
@@ -231,7 +231,7 @@
   (+ (:vz apt) (* (/ 1 (:R apt)) (:windZ env)))
   (- (:vy apt) grav) 
   (- (:life apt) secs) 
-  (> 0.0 (:life apt) ))] new-pt))
+  (< 0.0 (:life apt) ))] new-pt))
 
 (ann mov-pts [Float environ (Vec pt) -> (Vec pt)])
 (defn mov-pts [^Float secs ^environ env ^clojure.lang.PersistentVector vec]
@@ -281,14 +281,14 @@
 (defn end[]
   (Display/destroy))
  
-(defn print-x [pt] (print (:life pt)) (print "\n"))
+(defn print-x [pt] (print (:z pt)) (print "\n"))
 
 (defn main-loop [pts env prev-frame-length]
   (def init-t (System/currentTimeMillis))
   (GL11/glClear GL11/GL_COLOR_BUFFER_BIT)
   (GL11/glClear GL11/GL_DEPTH_BUFFER_BIT)
   ;(let [new-vec (->> (spwn-pts prev-frame-length pts) (mov-pts prev-frame-length env) (filter is-alive) (check-colls) )]
-  (let [new-vec (->> (spwn-pts prev-frame-length pts) (filter is-alive) (check-colls) (mov-pts prev-frame-length env) )]
+  (let [new-vec (->> (spwn-pts prev-frame-length pts) (filter is-alive)  (mov-pts prev-frame-length env) )]
     (dorun (map render-pt new-vec))
     (dorun (map print-x new-vec))    
     ;(def moved-vecs (mov-pts prev-frame-length env new-vec))

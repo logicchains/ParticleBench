@@ -6,7 +6,7 @@
   (:gen-class :main true))
 
 (set! *warn-on-reflection* true)
-(def ^:const  PRINT_FRAMES true)
+(def ^:const  PRINT_FRAMES false)
 (def ^:const  SCREEN_WIDTH 800)
 (def ^:const  SCREEN_HEIGHT 600)
 (def ^:const  TITLE "ParticleBench")
@@ -25,8 +25,8 @@
 
 (def ^:const  POINTS_PER_SEC 2000)
 (def ^:const  MAX_INIT_VEL 7.0)
-(def ^:const  MAX_LIFE 2)
-(def ^:const  MAX_SCALE 5.0)
+(def ^:const  MAX_LIFE 4)
+(def ^:const  MAX_SCALE 4.0)
 
 (def ^:const  WIND_CHANGE 2.0)
 (def ^:const  MAX_WIND 3.0)
@@ -36,11 +36,12 @@
 
 (def ^Float init-t 0.0)
 (def ^Float end-t 0.0)
-(def ^Float start-t 0.0)
+(def ^Float gpu-init-t 0.0)
+(def ^Float gpu-end-t 0.0)
 (def ^Float frame-dur 0.0)
-(def ^Float spwn-tmr 0.0)
 (def ^Float run-tmr 0.0)
-(def  frames [] ) ;(make-vector (* RUNNING_TIME 1000) 0.0) )
+(def  frames (vec (repeat (* RUNNING_TIME 1000) 0)))
+(def  gpu-times (vec (repeat (* RUNNING_TIME 1000) 0)))
 (def  ^Integer cur-frame 0)
 
 (defrecord environ [ windX windY windZ])
@@ -92,11 +93,11 @@
       (recur (- i 1)))) 
     (. vertexPositions rewind)
     (GL15/glBufferData GL15/GL_ARRAY_BUFFER, vertexPositions, GL15/GL_STATIC_DRAW))
-  (print "madeit")
   (GL11/glEnableClientState GL11/GL_VERTEX_ARRAY)
   (GL11/glEnableClientState GL11/GL_NORMAL_ARRAY)
   (GL11/glVertexPointer 3 GL11/GL_FLOAT (* 6 4) 0)
-  (GL11/glNormalPointer GL11/GL_FLOAT (* 6 4) (* 3 4))) 
+  (GL11/glNormalPointer GL11/GL_FLOAT (* 6 4) (* 3 4))
+  (GL11/glMatrixMode GL11/GL_MODELVIEW)) 
 
 (defn init []
   (Display/setDisplayMode (new DisplayMode SCREEN_WIDTH SCREEN_HEIGHT))
@@ -124,7 +125,6 @@
   (GL11/glPushMatrix))
 
 (defn render-pt [apt]
-  (GL11/glMatrixMode GL11/GL_MODELVIEW)
   (GL11/glPopMatrix)
   (GL11/glPushMatrix)
   (GL11/glTranslatef (:x apt) (:y apt) (- 0 (:z apt)) )
@@ -152,9 +152,9 @@
   (take n (repeatedly func)))
 
 (ann spwn-pts [Float (Vec pt) -> (Vec pt)]) 
-(defn spwn-pts [^Float secs ^clojure.lang.PersistentVector pt-vec]
+(defn spwn-pts [^Float secs ^clojure.lang.PersistentVector pt-vec] 
   (let [num (* secs POINTS_PER_SEC)]
-    (into pt-vec (make-calls num make-new-pt))))
+   (into pt-vec (make-calls num make-new-pt))))
 
 (ann mov-pt [Float environ pt -> pt])
 (defn mov-pt [^Float secs ^environ env ^pt apt]
@@ -171,7 +171,7 @@
 
 (ann mov-pts [Float environ (Vec pt) -> (Vec pt)])
 (defn mov-pts [^Float secs ^environ env ^clojure.lang.PersistentVector vec]
-  (pmap #(mov-pt secs env %) vec))
+  (map #(mov-pt secs env %) vec))
 
 (ann check-coll [pt -> pt])
 (defn check-coll [^pt apt]
@@ -229,43 +229,32 @@
   (GL11/glClear GL11/GL_COLOR_BUFFER_BIT)
   (GL11/glClear GL11/GL_DEPTH_BUFFER_BIT)
   (let [new-vec (->> (spwn-pts prev-frame-length pts) (mov-pts prev-frame-length env) (filter is-alive) (check-colls) )]
+    (def gpu-init-t (System/currentTimeMillis))
     (dorun (map render-pt new-vec))
     (Display/update)
+    (def gpu-end-t (System/currentTimeMillis))
     (def end-t (System/currentTimeMillis))
-    (def frame-dur (/ (- end-t init-t) 1000) )
-    (if (> (/ (- end-t start-t) 1000) RUNNING_TIME) (end) false)
-    (recur new-vec (do-wind env frame-dur) frame-dur)))
+    (def ^Float frame-dur (/ (- end-t init-t) (float 1000)) )
+    (def run-tmr (+ run-tmr frame-dur) )
+    (if (>= run-tmr (/ MAX_LIFE 1000) ) ( do
+                                          (def frames (assoc frames cur-frame frame-dur))
+                                          (def gpu-times (assoc gpu-times cur-frame (/ (- gpu-end-t gpu-init-t) (float 1000))))
+                                          (def cur-frame (inc cur-frame))) false)
+    (if (< run-tmr RUNNING_TIME) 
+      (recur new-vec (do-wind env frame-dur) frame-dur)
+      (do 
+        (end)
+        (def mean-frame-time (/ (->> (take cur-frame frames) (reduce +)) cur-frame))
+        (def mean-gpu-time (/ (->> (take cur-frame gpu-times) (reduce +)) cur-frame))
+        (printf "Average framerate was: %.6f frames per second.\n", (float (/ 1 mean-frame-time)))
+        (printf "Average cpu time was- %.6f seconds per frame.\n", (float (- mean-frame-time mean-gpu-time)))
+        (if PRINT_FRAMES (do 
+                           (print "--:")
+                           (dorun (map #(printf "%.6f," (float %)) (take cur-frame frames)))
+                           (print ".--"))
+          false)))))
 
 (defn main []
   (init)
-  (def start-t (System/currentTimeMillis))
   (load-cube-to-gpu)
-  (main-loop [] (->environ -3 0 0) 0.01 )) 
-
-;This is the whole main function from Scheme, to be implemented once the rest is working 
-;(set! init-t (/ (current-inexact-milliseconds) 1000) )
-;(spwn-pts 0.01 pts)
-;(move-pts 0.01 pts)
-;(do-wind env)
-;(check-colls vec)
-;(if (>= spwn-tmr *SPAWN_INTERVAL*) (begin (spwn-pts *SPAWN_INTERVAL*) (set! spwn-tmr (- spwn-tmr *SPAWN_INTERVAL*)) ) #f)
-;(GL11/glClear GL11/GL_COLOR_BUFFER_BIT)
-;(GL11/glClear GL11/GL_DEPTH_BUFFER_BIT)
-;(render-pts vec)
-;(Display/update)
-;(main-loop 
-;(set! end-t (/ (current-inexact-milliseconds) 1000) )
-;(set! frame-dur (- end-t init-t) )
-;(set! spwn-tmr (+ spwn-tmr frame-dur) )
-;(set! cleanup-tmr (+ cleanup-tmr frame-dur) )
-;(set! run-tmr (+ run-tmr frame-dur) )
-;(if (>= run-tmr (/ *MAX_LIFE* 1000) ) (begin ( vector-set! frames cur-frame frame-dur) ( set! cur-frame (+ cur-frame 1) ) ) #f )
-;(if (< run-tmr *RUNNING_TIME*) (main-loop)
-;   (let ([sum 0]) (begin
-;                   (for ([i (in-range 0 cur-frame)]) (set! sum (+ sum (vector-ref frames i) ) ) )
-;                  (display "Average framerate was: ") (display (/ 1 (/ sum cur-frame) ) ) (display " frames per second.\n") )
-;                 (if (equal? *PRINT_FRAMES* #t) (begin
-;                                                     (display "--:")
-;                                                    (for ([i (in-range 0 cur-frame)]) (begin (display (/ (vector-ref frames i)) ) (display ",") ) )
-;                                                   (display ".--")
-;                                             ) #f )
+  (main-loop [] (->environ -2 0 -1) 0.01 )) 

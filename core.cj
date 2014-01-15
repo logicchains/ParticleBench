@@ -47,7 +47,7 @@
 
 (def tenv (->environ 1.0 0.4 -1.5))
 
-(def  ^:const ^Float grav 0.5)
+(def  ^:const ^Float grav 100.0)
 (def ambient (vector-of :float 0.8 0.05 0.1 1.0))
 (def diffuse (vector-of :float 1.0 1.0 1.0 1.0))
 (def light-pos (vector-of :float (+ MIN_X (/ (- MAX_X MIN_X) 2) ) MAX_Y MIN_DEPTH 0.0))
@@ -197,7 +197,7 @@
   (gltest-cube)
   ;(GL11/glDrawArrays GL11/GL_QUADS 0 24)
   apt)
-  
+
 (defn end[]
   (Display/destroy))
 
@@ -219,91 +219,95 @@
 
 (ann spwn-pts [Float (Vec pt) -> (Vec pt)]) 
 (defn spwn-pts [^Float secs ^clojure.lang.PersistentVector pt-vec]
- (let [num (* secs POINTS_PER_SEC)]
-   (into pt-vec (make-calls num make-new-pt))))
+  (let [num (* secs POINTS_PER_SEC)]
+    (into pt-vec (make-calls num make-new-pt))))
 
 (ann mov-pt [Float environ pt -> pt])
 (defn mov-pt [^Float secs ^environ env ^pt apt]
-  ;;(printf "X: %.3f Y: %.3f Z: %.3f \n" (:x apt) (:y apt) (:z apt))
   (let [new-pt (->pt 
-  (+ (:x apt) (* (:vx apt) secs) )
-  (+ (:y apt) (* (:vy apt) secs) ) 
-  (+ (:z apt) (* (:vz apt) secs) )
-  (+ (:vx apt) (* (/ 1 (:R apt)) (:windX env)))
-  (+ (:vy apt) (* (/ 1 (:R apt)) (:windY env)))
-  (+ (:vz apt) (* (/ 1 (:R apt)) (:windZ env)))
-  (- (:vy apt) grav) 
-  (- (:life apt) secs) 
-  (< 0.0 (:life apt) ))] new-pt))
+                 (+ (:x apt) (* (:vx apt) secs) )
+                 (- (+ (:y apt) (* (:vy apt) secs) ) (* grav secs)) 
+                 (+ (:z apt) (* (:vz apt) secs) )
+                 (+ (:vx apt) (* (/ 1 (:R apt)) (:windX env)))
+                 (+ (:vy apt) (* (/ 1 (:R apt)) (:windY env)))
+                 (+ (:vz apt) (* (/ 1 (:R apt)) (:windZ env)))
+                 (:R apt) 
+                 (- (:life apt) secs) 
+                 (< 0.0 (:life apt) ))] new-pt))
 
 (ann mov-pts [Float environ (Vec pt) -> (Vec pt)])
 (defn mov-pts [^Float secs ^environ env ^clojure.lang.PersistentVector vec]
   (pmap #(mov-pt secs env %) vec))
-  
-(ann check-coll [pt ->])
-(defn check-coll [^pt apt]   
-  (if (< (:x apt ) MIN_X) (
-                            (assoc apt :x  (+ MIN_X (:R apt)) )
-                            (assoc apt :vx  (* (:vx apt) -1.1)) ) false)
-  (if (> (:x apt ) MAX_X) (
-                            (assoc apt :x  (- MAX_X (:R apt)) )
-                            (assoc apt :vx  (* (:vx apt) -1.1)) ) false)
-  (if (< (:y apt ) MIN_Y) (
-                            (assoc apt :y  (+ MIN_Y (:R apt)) )
-                            (assoc apt :vy  (* (:vy apt) -1.1)) ) false)
-  (if (> (:y apt ) MAX_Y) (
-                            (assoc apt :y  (- MAX_Y (:R apt)) )
-                            (assoc apt :vy  (* (:vy apt) -1.1)) ) false)
-  (if (< (:z apt ) MIN_DEPTH) (
-                                (assoc apt :z  (+ MIN_DEPTH (:R apt)) )
-                                (assoc apt :vz  (* (:vz apt) -1.1)) ) false)
-  (if (> (:z apt ) MAX_DEPTH) (
-                                (assoc apt :z  (- MAX_DEPTH (:R apt)) )
-                                (assoc apt :vz  (* (:vz apt) -1.1)) ) false)
-  apt
-  )
+
+(ann check-coll [pt -> pt])
+(defn check-coll [^pt apt]
+  (let [x (cond 
+            (< (:x apt ) MIN_X) (+ MIN_X (:R apt)) 
+            (> (:x apt ) MAX_X) (- MAX_X (:R apt))
+            :else (:x apt))
+        vx (cond 
+             (< (:x apt ) MIN_X) (* (:vx apt) -1.1)
+             (> (:x apt ) MAX_X) (* (:vx apt) -1.1)
+             :else (:vx apt))
+        y (cond 
+            (< (:y apt ) MIN_Y) (+ MIN_Y (:R apt)) 
+            (> (:y apt ) MAX_Y) (- MAX_Y (:R apt))
+            :else (:y apt))
+        vy (cond 
+             (< (:y apt ) MIN_Y) (* (:vy apt) -1.1)
+             (> (:y apt ) MAX_Y) (* (:vy apt) -1.1)
+             :else (:vy apt))
+        z (cond 
+            (< (:z apt ) MIN_DEPTH) (+ MIN_DEPTH (:R apt)) 
+            (> (:z apt ) MAX_DEPTH) (- MAX_DEPTH (:R apt))
+            :else (:z apt))
+        vz (cond 
+             (< (:z apt ) MIN_DEPTH) (* (:vz apt) -1.1)
+             (> (:z apt ) MAX_DEPTH) (* (:vz apt) -1.1)
+             :else (:vz apt))]
+    (->pt x y z vx vy vz (:R apt) (:life apt) (:is apt))))
+
 
 (ann check-colls [(Vec pt) -> (Vec pt)])
 (defn check-colls [^clojure.lang.PersistentVector vec]
-  (pmap check-coll vec))
+  (map check-coll vec))
 
 (defn is-alive [^pt pt]
   (:is pt))
 
 (ann do-wind [env float -> env])
 (defn do-wind [^environ env ^Float frame-dur]
-  (assoc env :windX (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE 2) ) frame-dur) (:windX env)) )
-  (assoc env :windY (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE 2) ) frame-dur) (:windY env)) )
-  (assoc env :windZ (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE 2) ) frame-dur) (:windZ env)) )
-  (if (> (math/abs (:windX env)) MAX_WIND) (assoc env :windX (* (:windX env) -0.5) ) false)
-  (if (> (math/abs (:windY env)) MAX_WIND) (assoc env :windY (* (:windY env) -0.5) ) false)
-  (if (> (math/abs (:windZ env)) MAX_WIND) (assoc env :windZ (* (:windZ env) -0.5) ) false)
-  env
+  (->environ (if (> (math/abs (:windX env)) MAX_WIND)
+               (* (:windX env) -0.5)
+               (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE 2) ) frame-dur) (:windX env)))
+             (if (> (math/abs (:windY env)) MAX_WIND)
+               (* (:windY env) -0.5)
+               (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE 2) ) frame-dur) (:windY env)))
+             (if (> (math/abs (:windZ env)) MAX_WIND)
+               (* (:windZ env) -0.5)
+               (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE 2) ) frame-dur) (:windZ env))))
   )
- 
+
 (defn print-x [pt] (print (:z pt)) (print "\n"))
 
 (defn main-loop [pts env prev-frame-length]
   (def init-t (System/currentTimeMillis))
   (GL11/glClear GL11/GL_COLOR_BUFFER_BIT)
   (GL11/glClear GL11/GL_DEPTH_BUFFER_BIT)
-  ;(let [new-vec (->> (spwn-pts prev-frame-length pts) (mov-pts prev-frame-length env) (filter is-alive) (check-colls) )]
-  (let [new-vec (->> (spwn-pts prev-frame-length pts) (mov-pts prev-frame-length env) (filter is-alive) )]
+  (let [new-vec (->> (spwn-pts prev-frame-length pts) (mov-pts prev-frame-length env) (filter is-alive) (check-colls) )]
     (dorun (map render-pt new-vec))
-    ;(dorun (map print-x new-vec))    
-    ;(def moved-vecs ((check-colls) new-vec))
     (Display/update)
     (def end-t (System/currentTimeMillis))
-    (if (> (/ (- end-t start-t) 1000) 3) (end) false)
+    (if (> (/ (- end-t start-t) 1000) RUNNING_TIME) (end) false)
     (recur new-vec (do-wind env (/ (- end-t init-t) 1000)) (/ (- end-t init-t) 1000))))
 
 (defn main []
   (init)
   (def start-t (System/currentTimeMillis))
   ;(load-cube-to-gpu)
-  (main-loop [] (->environ 1.5 1.1 -1.2) 0.01 )) 
+  (main-loop [] (->environ -5 0 0) 0.01 )) 
 
-;This is the whole maine function from Scheme, to be implemented once the rest is working 
+;This is the whole main function from Scheme, to be implemented once the rest is working 
 ;(set! init-t (/ (current-inexact-milliseconds) 1000) )
 ;(spwn-pts 0.01 pts)
 ;(move-pts 0.01 pts)

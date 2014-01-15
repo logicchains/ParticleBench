@@ -37,17 +37,16 @@
 (def ^Float init-t 0.0)
 (def ^Float end-t 0.0)
 (def ^Float start-t 0.0)
-;(def ^Float spwn-tmr 0.0)
-;(def ^Float run-tmr 0.0)
+(def ^Float frame-dur 0.0)
+(def ^Float spwn-tmr 0.0)
+(def ^Float run-tmr 0.0)
 (def  frames [] ) ;(make-vector (* RUNNING_TIME 1000) 0.0) )
 (def  ^Integer cur-frame 0)
 
 (defrecord environ [ windX windY windZ])
 (ann-record environ [windX :- Float, windY :- Float, windZ :- Float])
 
-(def tenv (->environ 1.0 0.4 -1.5))
-
-(def  ^:const ^Float grav 100.0)
+(def  ^:const ^Float grav 50.0)
 (def ambient (vector-of :float 0.8 0.05 0.1 1.0))
 (def diffuse (vector-of :float 1.0 1.0 1.0 1.0))
 (def light-pos (vector-of :float (+ MIN_X (/ (- MAX_X MIN_X) 2) ) MAX_Y MIN_DEPTH 0.0))
@@ -89,29 +88,15 @@
   (let [vertexPositions (BufferUtils/createFloatBuffer (count vertex-normal-array))]
     (loop [i (count vertex-normal-array)]
       (when (> i 0)
-        (. vertexPositions put (get vertex-normal-array (- (count vertex-normal-array) i))))
-      (recur (- i 1))) 
+        (. vertexPositions put (float (get vertex-normal-array (- (count vertex-normal-array) i))))
+      (recur (- i 1)))) 
     (. vertexPositions rewind)
     (GL15/glBufferData GL15/GL_ARRAY_BUFFER, vertexPositions, GL15/GL_STATIC_DRAW))
-  
+  (print "madeit")
   (GL11/glEnableClientState GL11/GL_VERTEX_ARRAY)
   (GL11/glEnableClientState GL11/GL_NORMAL_ARRAY)
   (GL11/glVertexPointer 3 GL11/GL_FLOAT (* 6 4) 0)
-  (GL11/glNormalPointer GL11/GL_FLOAT (* 6 4) (* 3 4)) 
-  )
-
-(defn testbind []
-  (let [vertexPositions (BufferUtils/createFloatBuffer (count vertex-normal-array))]
-    (loop [i (count vertex-normal-array)]
-      (when (> i 0)
-        (. vertexPositions put (get vertex-normal-array (- (count vertex-normal-array) i)))
-        (recur (- i 1)))) 
-    (. vertexPositions rewind)
-    (loop [i (count vertex-normal-array)]
-      (when (> i 0)
-        (print (. vertexPositions get ))
-        (recur (- i 1)))) 
-    ))
+  (GL11/glNormalPointer GL11/GL_FLOAT (* 6 4) (* 3 4))) 
 
 (defn init []
   (Display/setDisplayMode (new DisplayMode SCREEN_WIDTH SCREEN_HEIGHT))
@@ -136,66 +121,15 @@
   (GL11/glRotatef 20.0 1.0 0.0 0.0)
   (GL11/glMatrixMode GL11/GL_MODELVIEW)
   (GL11/glLoadIdentity)
-  (GL11/glPushMatrix)
-  
-  )
-
-(defn gltest-cube []
-  (GL11/glBegin GL11/GL_QUADS )
-  ; Top face
-  (GL11/glColor3f   0.0 1.0  0.0 )  ; Green
-  (GL11/glVertex3f  1.0 1.0 -1.0 )  ; Top-right of top face
-  (GL11/glVertex3f -1.0 1.0 -1.0 )  ; Top-left of top face
-  (GL11/glVertex3f -1.0 1.0  1.0 )  ; Bottom-left of top face
-  (GL11/glVertex3f  1.0 1.0  1.0 )  ; Bottom-right of top face
-  
-  ; Bottom face
-  (GL11/glColor3f   1.0  0.5  0.0 ) ; Orange
-  (GL11/glVertex3f  1.0 -1.0 -1.0 ) ; Top-right of bottom face
-  (GL11/glVertex3f -1.0 -1.0 -1.0 ) ; Top-left of bottom face
-  (GL11/glVertex3f -1.0 -1.0  1.0 ) ; Bottom-left of bottom face
-  (GL11/glVertex3f  1.0 -1.0  1.0 ) ; Bottom-right of bottom face
-  
-  ; Front face
-  (GL11/glColor3f   1.0  0.0 0.0 )  ; Red
-  (GL11/glVertex3f  1.0  1.0 1.0 )  ; Top-Right of front face
-  (GL11/glVertex3f -1.0  1.0 1.0 )  ; Top-left of front face
-  (GL11/glVertex3f -1.0 -1.0 1.0 )  ; Bottom-left of front face
-  (GL11/glVertex3f  1.0 -1.0 1.0 )  ; Bottom-right of front face
-  
-  ; Back face
-  (GL11/glColor3f   1.0  1.0  0.0 ) ; Yellow
-  (GL11/glVertex3f  1.0 -1.0 -1.0 ) ; Bottom-Left of back face
-  (GL11/glVertex3f -1.0 -1.0 -1.0 ) ; Bottom-Right of back face
-  (GL11/glVertex3f -1.0  1.0 -1.0 ) ; Top-Right of back face
-  (GL11/glVertex3f  1.0  1.0 -1.0 ) ; Top-Left of back face
-  
-  ; Left face
-  (GL11/glColor3f   0.0  0.0  1.0)  ; Blue
-  (GL11/glVertex3f -1.0  1.0  1.0)  ; Top-Right of left face
-  (GL11/glVertex3f -1.0  1.0 -1.0)  ; Top-Left of left face
-  (GL11/glVertex3f -1.0 -1.0 -1.0)  ; Bottom-Left of left face
-  (GL11/glVertex3f -1.0 -1.0  1.0)  ; Bottom-Right of left face
-  
-  ; Right face
-  (GL11/glColor3f   1.0  0.0  1.0)  ; Violet
-  (GL11/glVertex3f  1.0  1.0  1.0)  ; Top-Right of left face
-  (GL11/glVertex3f  1.0  1.0 -1.0)  ; Top-Left of left face
-  (GL11/glVertex3f  1.0 -1.0 -1.0)  ; Bottom-Left of left face
-  (GL11/glVertex3f  1.0 -1.0  1.0)  ; Bottom-Right of left face
-  (GL11/glEnd))
+  (GL11/glPushMatrix))
 
 (defn render-pt [apt]
-  ;(print "rendering now")
-  ;(printf "X: %.3f Y: %.3f Z: %.3f \n" (:x apt) (:y apt) (:z apt))
   (GL11/glMatrixMode GL11/GL_MODELVIEW)
   (GL11/glPopMatrix)
   (GL11/glPushMatrix)
   (GL11/glTranslatef (:x apt) (:y apt) (- 0 (:z apt)) )
   (GL11/glScalef (* (:R apt) 2) (* (:R apt) 2) (* (:R apt) 2) )
-  ;(GL11/glScalef 10 10 10 )
-  (gltest-cube)
-  ;(GL11/glDrawArrays GL11/GL_QUADS 0 24)
+  (GL11/glDrawArrays GL11/GL_QUADS 0 24)
   apt)
 
 (defn end[]
@@ -298,14 +232,15 @@
     (dorun (map render-pt new-vec))
     (Display/update)
     (def end-t (System/currentTimeMillis))
+    (def frame-dur (/ (- end-t init-t) 1000) )
     (if (> (/ (- end-t start-t) 1000) RUNNING_TIME) (end) false)
-    (recur new-vec (do-wind env (/ (- end-t init-t) 1000)) (/ (- end-t init-t) 1000))))
+    (recur new-vec (do-wind env frame-dur) frame-dur)))
 
 (defn main []
   (init)
   (def start-t (System/currentTimeMillis))
-  ;(load-cube-to-gpu)
-  (main-loop [] (->environ -5 0 0) 0.01 )) 
+  (load-cube-to-gpu)
+  (main-loop [] (->environ -3 0 0) 0.01 )) 
 
 ;This is the whole main function from Scheme, to be implemented once the rest is working 
 ;(set! init-t (/ (current-inexact-milliseconds) 1000) )

@@ -1,0 +1,11 @@
+[Package]
+name          = "ParticleBench"
+version       = "0.1.0"
+author        = "Dominik Picheta"
+description   = "ParticleBenchmark"
+license       = "GPLv2"
+
+bin = "N"
+
+[Deps]
+Requires: "nimrod >= 0.9.2, opengl, nim-glfw, x11"

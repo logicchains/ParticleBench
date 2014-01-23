@@ -86,7 +86,7 @@
   (print (.gLen slice))
   )
 
-(defn f-render-pt [^cjpb.core.Particle apt]
+(defn render-pt [^cjpb.core.Particle apt]
   (if (.gis apt) (do
                    (GL11/glPopMatrix)
                    (GL11/glPushMatrix)
@@ -95,8 +95,8 @@
                    (GL11/glDrawArrays GL11/GL_QUADS (int 0) (int 24))
                    apt)) false)
 
-(defn f-new-pt [^PSlice f-pts]
-  (.sPt f-pts (.gLen f-pts)  (Particle. 
+(defn new-pt [^PSlice pts]
+  (.sPt pts (.gLen pts)  (Particle. 
                                (- (+ (float 0.0) (* (float (rand)) START_RANGE)) (/ START_RANGE (float 2.0)) ) 
                                START_Y
                                (- (+ START_DEPTH (* (float (rand)) START_RANGE)) (/ START_RANGE (float 2.0)) )
@@ -107,47 +107,53 @@
                                (* (float (rand)) MAX_LIFE)
                                true)
     )
-  (.sLen f-pts (+ (.gLen f-pts) (int 1))))
+  (.sLen pts (+ (.gLen pts) (int 1))))
 
-(defn f-spwn-pts [^Float secs ^PSlice f-pts]
-  (let [num (* secs POINTS_PER_SEC)]
-    (dotimes [not-used num] (f-new-pt f-pts) ))
-  f-pts)
+(defn spwn-pts [^Float secs ^PSlice pts]
+  (if (> spwn-tmr SPAWN_INTERVAL) (do
+  (let [num (* SPAWN_INTERVAL POINTS_PER_SEC)]
+    (dotimes [not-used num] (new-pt pts) ))
+   (def spwn-tmr (- spwn-tmr SPAWN_INTERVAL) ))
+   false)
+  pts)
 
-(defn f-mov-pt [^Float secs ^environ env ^Long pos ^PSlice f-pts]
-  (let [apt (.gPt f-pts pos)]
-    (.sx (.gPt f-pts pos) (+ (.gx apt) (* (.gvx apt) secs)) )
-    (.sy (.gPt f-pts pos) (- (+ (.gy apt) (* (.gvy apt) secs) ) (* grav secs)))
-    (.sz (.gPt f-pts pos) (+ (.gz apt) (* (.gvz apt) secs) ))
-    (.svx (.gPt f-pts pos) (+ (.gvx apt) (* (/ (float 1.0) (.gR apt)) (:windX env))))
-    (.svy (.gPt f-pts pos) (+ (.gvy apt) (* (/ (float 1.0) (.gR apt)) (:windY env))))
-    (.svz (.gPt f-pts pos) (+ (.gvz apt) (* (/ (float 1.0) (.gR apt)) (:windZ env))))
-    (.slife (.gPt f-pts pos) (- (.glife apt) secs)) 
-    (.sis (.gPt f-pts pos) (< (float 0.0) (.glife apt) ))))
+(defn mov-pt [^Float secs ^environ env ^Long pos ^PSlice pts]
+  (let [apt (.gPt pts pos)]
+    (if (.gis apt) (do
+    (.sx (.gPt pts pos) (+ (.gx apt) (* (.gvx apt) secs)) )
+    (.sy (.gPt pts pos) (- (+ (.gy apt) (* (.gvy apt) secs) ) (* grav secs)))
+    (.sz (.gPt pts pos) (+ (.gz apt) (* (.gvz apt) secs) ))
+    (.svx (.gPt pts pos) (+ (.gvx apt) (* (/ (float 1.0) (.gR apt)) (:windX env))))
+    (.svy (.gPt pts pos) (+ (.gvy apt) (* (/ (float 1.0) (.gR apt)) (:windY env))))
+    (.svz (.gPt pts pos) (+ (.gvz apt) (* (/ (float 1.0) (.gR apt)) (:windZ env))))
+    (.slife (.gPt pts pos) (- (.glife apt) secs)) 
+    (.sis (.gPt pts pos) (< (float 0.0) (.glife apt) ))))))
 
 
-(defn f-mov-pts [^Float secs ^environ env ^PSlice f-pts]
-  (dotimes [i (- (.gLen f-pts) 1)] (f-mov-pt secs env i f-pts))
-  f-pts) 
+(defn mov-pts [^Float secs ^environ env ^PSlice pts]
+  (dotimes [i (- (.gLen pts) 1)] (mov-pt secs env i pts))
+  pts) 
 
-(defn f-check-coll [^Long pos ^PSlice f-pts]
-  (let [apt (.gPt f-pts pos)]
+(defn check-coll [^Long pos ^PSlice pts]
+  (let [apt (.gPt pts pos)]
+    (if (.gis apt)
         (cond 
-            (< (.gx apt ) MIN_X) (do (.sx (.gPt f-pts pos) (+ MIN_X (.gR apt))) (.svx (.gPt f-pts pos) (* (.gvx apt) (float -1.1)))  ) 
-            (> (.gx apt ) MAX_X) (do (.sx (.gPt f-pts pos) (- MAX_X (.gR apt))) (.svx (.gPt f-pts pos) (* (.gvx apt) (float -1.1)))  )
-            (< (.gy apt ) MIN_Y) (do (.sy (.gPt f-pts pos) (+ MIN_Y (.gR apt))) (.svy (.gPt f-pts pos) (* (.gvy apt) (float -1.1)))  ) 
-            (> (.gy apt ) MAX_Y) (do (.sy (.gPt f-pts pos) (- MAX_Y (.gR apt))) (.svy (.gPt f-pts pos) (* (.gvy apt) (float -1.1)))  )
-            (< (.gz apt ) MIN_DEPTH) (do (.sz (.gPt f-pts pos) (+ MIN_DEPTH (.gR apt))) (.svz (.gPt f-pts pos) (* (.gvz apt) (float -1.1)))  ) 
-            (> (.gz apt ) MAX_DEPTH) (do (.sz (.gPt f-pts pos) (- MAX_DEPTH (.gR apt))) (.svz (.gPt f-pts pos) (* (.gvz apt) (float -1.1)))  )
-            )))
+            (< (.gx apt ) MIN_X) (do (.sx (.gPt pts pos) (+ MIN_X (.gR apt))) (.svx (.gPt pts pos) (* (.gvx apt) (float -1.1)))  ) 
+            (> (.gx apt ) MAX_X) (do (.sx (.gPt pts pos) (- MAX_X (.gR apt))) (.svx (.gPt pts pos) (* (.gvx apt) (float -1.1)))  )
+            (< (.gy apt ) MIN_Y) (do (.sy (.gPt pts pos) (+ MIN_Y (.gR apt))) (.svy (.gPt pts pos) (* (.gvy apt) (float -1.1)))  ) 
+            (> (.gy apt ) MAX_Y) (do (.sy (.gPt pts pos) (- MAX_Y (.gR apt))) (.svy (.gPt pts pos) (* (.gvy apt) (float -1.1)))  )
+            (< (.gz apt ) MIN_DEPTH) (do (.sz (.gPt pts pos) (+ MIN_DEPTH (.gR apt))) (.svz (.gPt pts pos) (* (.gvz apt) (float -1.1)))  ) 
+            (> (.gz apt ) MAX_DEPTH) (do (.sz (.gPt pts pos) (- MAX_DEPTH (.gR apt))) (.svz (.gPt pts pos) (* (.gvz apt) (float -1.1)))  )
+            ))))
 
-(defn f-check-colls [^PSlice f-pts]
-  (dotimes [i (- (.gLen f-pts) 1)] (f-check-coll i f-pts) )
-  f-pts)
+(defn check-colls [^PSlice pts]
+  (dotimes [i (- (.gLen pts) 1)] (check-coll i pts) )
+  pts)
 
-(defn f-render-pts [^PSlice f-pts]
-  (dotimes [i (- (.gLen f-pts) 1)] (f-render-pt (.gPt f-pts i) ))
-  f-pts)
+(defn render-pts [^PSlice pts]
+  (dotimes [i (- (.gLen pts) 1)] (render-pt (.gPt pts i) ))
+  (Display/update)
+  pts)
 
 (def vertex-normal-array
   (vector-of :float 
@@ -174,8 +180,7 @@
              -1.0 -1.0 -1.0 -1.0 0.0 0.0
              -1.0 -1.0 1.0 -1.0 0.0 0.0
              -1.0 1.0 1.0 -1.0 0.0 0.0
-             -1.0 1.0 -1.0 -1.0 0.0 0.0)
-  )
+             -1.0 1.0 -1.0 -1.0 0.0 0.0))
 
 (defn load-cube-to-gpu []
   (def vbo (GL15/glGenBuffers))
@@ -231,20 +236,16 @@
                (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE (float 2.0)) ) frame-dur) (:windY env)))
              (if (> (math/abs (:windZ env)) MAX_WIND)
                (* (:windZ env) (float -0.5))
-               (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE (float 2.0)) ) frame-dur) (:windZ env))))
-  )
+               (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE (float 2.0)) ) frame-dur) (:windZ env)))))
 
-(defn f-main-loop [^PSlice pts env prev-frame-length]
+(defn set-timer [^Float tmr ^PSlice pts] (def tmr (System/currentTimeMillis)) pts)
+
+(defn main-loop [^PSlice pts env prev-frame-length]
   (def init-t (System/currentTimeMillis))
-  (GL11/glClear GL11/GL_COLOR_BUFFER_BIT)
-  (GL11/glClear GL11/GL_DEPTH_BUFFER_BIT)
-  (if (> spwn-tmr SPAWN_INTERVAL) (do (f-spwn-pts SPAWN_INTERVAL pts) (def spwn-tmr (- spwn-tmr SPAWN_INTERVAL) )) false)
-  ;(f-spwn-pts prev-frame-length pts)
-  (f-mov-pts prev-frame-length env pts)
-  (f-check-colls pts)
+  (GL11/glClear (bit-or GL11/GL_COLOR_BUFFER_BIT GL11/GL_DEPTH_BUFFER_BIT))
+  (->> (spwn-pts prev-frame-length pts) (mov-pts prev-frame-length env) (check-colls)); (set-timer gpu-init-t) (render-pts) )
   (def gpu-init-t (System/currentTimeMillis))
-  (f-render-pts pts)
-  (Display/update)
+  (render-pts pts)
   (def gpu-end-t (System/currentTimeMillis))
   (def end-t (System/currentTimeMillis))
   (def ^Float frame-dur (/ (- end-t init-t) (float 1000)) )
@@ -271,4 +272,4 @@
 (defn -main []
   (init)
   (load-cube-to-gpu)
-  (f-main-loop tslice (->environ -2 0 -1) 0.01 ))
+  (main-loop tslice (->environ -2 0 -1) 0.01 ))

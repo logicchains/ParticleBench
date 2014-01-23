@@ -109,10 +109,10 @@ proc spawnPts(secs: float64) =
   let num = secs * PointsPerSec
   for i in 0 .. <num.int:
     var pt = TPt(
-      p[0 + float64(xorRand() mod START_RANGE) - START_RANGE/2,
+      p: [0 + float64(xorRand() mod START_RANGE) - START_RANGE/2,
         startY,
         startDepth + float64(xorRand() mod START_RANGE) - START_RANGE/2],
-      v[float64(xorRand() mod MaxInitVel),
+      v: [float64(xorRand() mod MaxInitVel),
         float64(xorRand() mod MaxInitVel),
         float64(xorRand() mod MaxInitVel)],
       r: float64(xorRand() mod (MAX_SCALE*100)) / 200,

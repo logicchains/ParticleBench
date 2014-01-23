@@ -52,7 +52,6 @@ var
   spwnTmr = 0.0
   cleanupTmr = 0.0
   runTmr = 0.0
-
   frames: array[RunningTime * 1000, float64]
   gpuTimes: array[RunningTime * 1000, float64]
   curFrame = 0
@@ -60,14 +59,13 @@ var
   numPts = 0
   minPt = 0
   pts: array[MaxPts, TPt]
-  
-  gVBO: GLuint = 0
   vertices: array[NumVertices, TVertex]
   curVertex = 0
   
   wind: array[NumCoord, float64] = [0.0, 0.0, 0.0]
   gravity = 0.0'f64
   seed = 1234569'u32
+  gVBO: GLuint = 0
 
 
 converter toGLFV(pos: array[NumCoord,TNumber]) : array[NumCoord, GLfloat] =
@@ -263,7 +261,6 @@ when isMainModule:
     if (runTmr >= RUNNING_TIME):  # Animation complete 
       break
   
-  # calculate framerate mean and standard deviation
   let frameTimeMean = mean frames[0 .. <curFrame]
   echo("Average framerate was: $1 frames per second." % (1/frameTimeMean).formatFloat)
   

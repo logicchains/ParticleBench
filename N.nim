@@ -10,21 +10,30 @@ type
   TVertex = object
     pos: array[3, GLfloat]
     normal: array[3, GLfloat]
+  
+  TcoordinateInt = tuple
+    x, y, z: int
+  
+  TcoordinateF64= tuple
+    x, y, z: float64
+  
+  TcoordinateGLfloat = tuple
+    x, y, z: GLfloat
+  
+  Dim = enum
+    x, y, z
+
 
 const
   PrintFrames = true
   Title = "ParticleBench"
   Width = 800
   Height = 600
-  MinX = -80
-  MaxX = 80
-  MinY = -90
-  MaxY = 50
-  MinDepth = 50
-  MaxDepth = 250
+  Min: TcoordinateInt = (x: -80, y: -90, z: 50)
+  Max: TcoordinateInt = (x: 80, y: 50, z: 250)
   StartRange = 15
   StartY = MaxY
-  StartDepth = (MinDepth + (MinDepth+MaxDepth)/2)
+  StartDepth = (Min.z + (Min.z+Max.z)/2)
   PointsPerSec = 2000
   MaxInitVel = 7
   MaxLife = 5000
@@ -61,14 +70,12 @@ var
   curNormal = 0
 
   gVBO: GLuint = 0
-  windX = 0.0'f64
-  windY = 0.0'f64
-  windZ = 0.0'f64
+  wind: TcoordinateF64 = (x: 0.0'f64, y: 0.0'f64, z: 0.0'f64)
   gravity = 0.0'f64
   
   ambient = [Glfloat(0.8), 0.05, 0.1, 1.0]
   diffuse = [Glfloat(1.0), 1.0, 1.0, 1.0]
-  lightPos = [GlFloat(MinX + (MaxX-MinX)/2), MaxY, MinDepth, 0]
+  lightPos = [GlFloat(Min.x + (Max.x-Min.x)/2), MaxY, Min.z, 0]
 
 proc newVertex(x, y, z: GLfloat) =
   var thisVertex: TVertex
@@ -98,10 +105,10 @@ proc movePts(secs: float64) =
     pts[i].x += pts[i].vx * secs
     pts[i].y += pts[i].vy * secs
     pts[i].z += pts[i].vz * secs
-    pts[i].vx += windX * 1 / pts[i].r
-    pts[i].vy += windY * 1 / pts[i].r
+    pts[i].vx += wind.x * 1 / pts[i].r
+    pts[i].vy += wind.y * 1 / pts[i].r
     pts[i].vy -= gravity
-    pts[i].vz += windZ * 1 / pts[i].r
+    pts[i].vz += wind.z * 1 / pts[i].r
     pts[i].life -= secs
     if pts[i].life <= 0:
       pts[i].bis = false
@@ -124,45 +131,38 @@ proc spawnPts(secs: float64) =
     numPts.inc
 
 proc doWind() =
-  windX += ( float64(xorRand() mod WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur
-  windY += ( float64(xorRand() mod WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur
-  windZ += ( float64(xorRand() mod WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur
-  if abs(windX) > MAX_WIND:
-    windX = windX * -0.5
-  
-  if abs(windY) > MAX_WIND:
-    windY *= -0.5
-  
-  if abs(windZ) > MAX_WIND:
-    windZ *= -0.5
+  for w in wind.fields:
+    w += (float64(xorRand() mod WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur
+    if abs(w) > MAX_WIND:
+      w *= -0.5
 
 proc checkColls() =
   for i in minPt .. numPts:
     if not pts[i].bis:
       continue
     
-    if Pts[i].X < MIN_X:
-      Pts[i].X = MIN_X + Pts[i].R
+    if Pts[i].X < Min.x:
+      Pts[i].X = Min.x + Pts[i].R
       Pts[i].VX *= -1.1 # These particles are magic; they accelerate by 10% at every bounce off the bounding box
     
-    if Pts[i].X > MAX_X:
-      Pts[i].X = MAX_X - Pts[i].R
+    if Pts[i].X > Max.x:
+      Pts[i].X = Max.x - Pts[i].R
       Pts[i].VX *= -1.1
     
-    if Pts[i].Y < MIN_Y:
-      Pts[i].Y = MIN_Y + Pts[i].R
+    if Pts[i].Y < Min.y:
+      Pts[i].Y = Min.y + Pts[i].R
       Pts[i].VY *= -1.1
     
     if Pts[i].Y > MAX_Y:
       Pts[i].Y = MAX_Y - Pts[i].R
       Pts[i].VY *= -1.1
     
-    if Pts[i].Z < MIN_DEPTH:
-      Pts[i].Z = MIN_DEPTH + Pts[i].R
+    if Pts[i].Z < Min.z:
+      Pts[i].Z = Min.z + Pts[i].R
       Pts[i].VZ *= -1.1
     
-    if Pts[i].Z > MAX_DEPTH:
-      Pts[i].Z = MAX_DEPTH - Pts[i].R
+    if Pts[i].Z > Max.z:
+      Pts[i].Z = Max.z - Pts[i].R
       Pts[i].VZ *= -1.1
 
 proc cleanupPtPool =

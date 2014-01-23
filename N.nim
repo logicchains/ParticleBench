@@ -206,6 +206,7 @@ proc renderPts =
   for i in minPt .. numPts:
     if (Pts[i].bis == false):
       continue
+      
     pt = addr pts[i]
     glMatrixMode(GL_MODELVIEW)
     glPopMatrix()
@@ -229,6 +230,7 @@ when isMainModule:
     initT = getTime()
     movePts(frameDur)
     doWind()
+    
     if (spwnTmr >= SPAWN_INTERVAL):
       spawnPts(SPAWN_INTERVAL)
       spwnTmr -= SPAWN_INTERVAL
@@ -248,42 +250,31 @@ when isMainModule:
     pollEvents()
 
     endT = getTime()
-    frameDur = endT-initT
+    frameDur = endT-initT  # Calculate the length of the previous frame
     spwnTmr += frameDur
     cleanupTmr += frameDur
     runTmr += frameDur
-    if (runTmr > MAX_LIFE/1000):
+    
+    if (runTmr > MAX_LIFE/1000):  # Start collecting framerate data and profiling after a full MaxLife worth of particles have been spawned
       frames[curFrame] = frameDur
       gpuTimes[curFrame] = gpuEndT - gpuInitT
       curFrame += 1
     
-    if (runTmr >= RUNNING_TIME):
-      var sum = 0'f64
-      for i in 0 .. <curFrame:
-        sum += frames[i]
-      
-      var frameTimeMean = sum / curFrame.float64
+    if (runTmr >= RUNNING_TIME):  # Animation complete; calculate framerate mean and standard deviation
+      let frameTimeMean = mean frames[0 .. <curFrame]
       echo("Average framerate was: $1 frames per second." % (1/frameTimeMean).formatFloat)
       
-      sum = 0
-      for i in 0 .. <curFrame:
-        sum += gpuTimes[i]
-      var gpuTimeMean = sum / curFrame.float64
+      let gpuTimeMean = mean gpuTimes[0 .. <curFrame]
       echo("Average cpu time was: $1 seconds per frame." %
            formatFloat(frameTimeMean - gpuTimeMean))
       
-      var sumDiffs = 0.0
-      for i in 0 .. <curFrame:
-        sumDiffs += pow((1/frames[i])-(1/frameTimeMean), 2)
-      
-      var variance = sumDiffs / curFrame.float64
-      var sd = sqrt(variance)
+      let sd = sqrt variance frames[0 .. <curFrame]
       echo("The standard deviation was: $1 frames per second." % sd.formatFloat)
+      
       when PRINT_FRAMES:
         stdout.write("--:")
         for i in 0 .. <curFrame:
-          stdout.write(formatFloat(1/frames[i], precision=6))
-          stdout.write(",")
+          stdout.write(formatFloat(1/frames[i], precision=6) & ",")
         
         stdout.write(".--") 
 

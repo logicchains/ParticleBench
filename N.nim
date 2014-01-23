@@ -2,29 +2,31 @@ import opengl, glfw/glfw, math, unsigned, strutils
 
 from glfw/wrapper import getTime
 
+const NumCoord = 3
+
 type
   TPt = object
-    x, y, z, vx, vy, vz, r, life: float64
+    p, v : array[NumCoord, float64]
+    r, life: float64
     bis: bool
 
   TVertex = object
-    pos: array[3, GLfloat]
-    normal: array[3, GLfloat]
+    pos: array[NumCoord, GLfloat]
+    normal: array[NumCoord, GLfloat]
+  
+  TCoord = enum
+    x, y, z
 
 const
   PrintFrames = true
   Title = "ParticleBench"
   Width = 800
   Height = 600
-  MinX = -80
-  MaxX = 80
-  MinY = -90
-  MaxY = 50
-  MinDepth = 50
-  MaxDepth = 250
+  Min: array[NumCoord, int] = [-80, -90, 50]
+  Max: array[NumCoord, int] = [80, 50, 250]
   StartRange = 15
   StartY = MaxY
-  StartDepth = (MinDepth + (MinDepth+MaxDepth)/2)
+  StartDepth = (Min[TCoord.z] + (Min[TCoord.z]+Max[TCoord.z])/2)
   PointsPerSec = 2000
   MaxInitVel = 7
   MaxLife = 5000
@@ -35,8 +37,13 @@ const
   RunningTime = ((MaxLife div 1000) * 5)
   MaxPts = RunningTime * PointsPerSec
   NumVertices = 24
-
+  
 var
+  ambient = [Glfloat(0.8), 0.05, 0.1, 1.0]
+  diffuse = [Glfloat(1.0), 1.0, 1.0, 1.0]
+  lightPos = [GlFloat(Min[TCoord.x] + (Max[TCoord.x]-Min[TCoord.x])/2), 
+              Max[TCoord.y], Min[TCoord.z], 0]
+              
   initT = 0.0
   endT = 0.0
   gpuInitT = 0.0
@@ -50,40 +57,29 @@ var
   gpuTimes: array[RunningTime * 1000, float64]
   curFrame = 0
 
-  pts: array[MaxPts, TPt]
-  vertices: array[NumVertices, TVertex]
-
   numPts = 0
   minPt = 0
-
-  seed = 1234569'u32
-  curVertex = 0
-  curNormal = 0
-
-  gVBO: GLuint = 0
-  windX = 0.0'f64
-  windY = 0.0'f64
-  windZ = 0.0'f64
-  gravity = 0.0'f64
+  pts: array[MaxPts, TPt]
   
-  ambient = [Glfloat(0.8), 0.05, 0.1, 1.0]
-  diffuse = [Glfloat(1.0), 1.0, 1.0, 1.0]
-  lightPos = [GlFloat(MinX + (MaxX-MinX)/2), MaxY, MinDepth, 0]
+  gVBO: GLuint = 0
+  vertices: array[NumVertices, TVertex]
+  curVertex = 0
+  
+  wind: array[NumCoord, float64] = [0.0, 0.0, 0.0]
+  gravity = 0.0'f64
+  seed = 1234569'u32
 
-proc newVertex(x, y, z: GLfloat) =
-  var thisVertex: TVertex
-  thisVertex.pos[0] = x
-  thisVertex.pos[1] = y
-  thisVertex.pos[2] = z
-  vertices[curVertex] = thisVertex
-  curVertex.inc
 
-proc newNormal(nx, ny, nz: GLfloat) =
-  for i in curNormal * 4 .. <((curNormal + 1) * 4):
-    vertices[i].normal[0] = nx
-    vertices[i].normal[1] = ny
-    vertices[i].normal[2] = nz
-  curNormal.inc
+converter toGLFV(pos: array[NumCoord,TNumber]) : array[NumCoord, GLfloat] =
+  for i, e in pos: # is it ok to GlFloat() only the first element of the array?
+    {.unroll 3.}
+    result[i] = GlFloat(e)
+  
+proc newVertexGroup(normal: array[NumCoord, GLfloat],
+                    pos: varargs[array[NumCoord, GLfloat]]) =
+  for p in pos:
+    vertices[curVertex] = TVertex(p, normal)
+    curVertex.inc
 
 proc xorRand: uint32 =
   seed = seed xor (seed shl 13)
@@ -95,27 +91,26 @@ proc movePts(secs: float64) =
   for i in minPt .. numPts:
     if not pts[i].bis:
       continue
-    pts[i].x += pts[i].vx * secs
-    pts[i].y += pts[i].vy * secs
-    pts[i].z += pts[i].vz * secs
-    pts[i].vx += windX * 1 / pts[i].r
-    pts[i].vy += windY * 1 / pts[i].r
+    for c in TCoord:
+      {.unroll: 3.}
+      pts[i].p[c.ord] += pts[i].v[c.ord] * secs
+      pts[i].p[c.ord] += wind[c.ord] * 1/pts[i].r
     pts[i].vy -= gravity
-    pts[i].vz += windZ * 1 / pts[i].r
     pts[i].life -= secs
     if pts[i].life <= 0:
       pts[i].bis = false
+    
 
 proc spawnPts(secs: float64) =
   let num = secs * PointsPerSec
   for i in 0 .. <num.int:
     var pt = TPt(
-      x: 0 + float64(xorRand() mod START_RANGE) - START_RANGE/2,
-      y: startY,
-      z: startDepth + float64(xorRand() mod START_RANGE) - START_RANGE/2,
-      vx: float64(xorRand() mod MaxInitVel),
-      vy: float64(xorRand() mod MaxInitVel),
-      vz: float64(xorRand() mod MaxInitVel),
+      p[0 + float64(xorRand() mod START_RANGE) - START_RANGE/2,
+        startY,
+        startDepth + float64(xorRand() mod START_RANGE) - START_RANGE/2],
+      v[float64(xorRand() mod MaxInitVel),
+        float64(xorRand() mod MaxInitVel),
+        float64(xorRand() mod MaxInitVel)],
       r: float64(xorRand() mod (MAX_SCALE*100)) / 200,
       life: float64(xorRand() mod MaxLife) / 1000,
       bis: true
@@ -124,46 +119,24 @@ proc spawnPts(secs: float64) =
     numPts.inc
 
 proc doWind() =
-  windX += ( float64(xorRand() mod WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur
-  windY += ( float64(xorRand() mod WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur
-  windZ += ( float64(xorRand() mod WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur
-  if abs(windX) > MAX_WIND:
-    windX = windX * -0.5
-  
-  if abs(windY) > MAX_WIND:
-    windY *= -0.5
-  
-  if abs(windZ) > MAX_WIND:
-    windZ *= -0.5
+  for w in wind:
+    w += (float64(xorRand() mod WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur
+    if abs(w) > MAX_WIND:
+      w *= -0.5
 
 proc checkColls() =
   for i in minPt .. numPts:
     if not pts[i].bis:
       continue
-    
-    if Pts[i].X < MIN_X:
-      Pts[i].X = MIN_X + Pts[i].R
-      Pts[i].VX *= -1.1 # These particles are magic; they accelerate by 10% at every bounce off the bounding box
-    
-    if Pts[i].X > MAX_X:
-      Pts[i].X = MAX_X - Pts[i].R
-      Pts[i].VX *= -1.1
-    
-    if Pts[i].Y < MIN_Y:
-      Pts[i].Y = MIN_Y + Pts[i].R
-      Pts[i].VY *= -1.1
-    
-    if Pts[i].Y > MAX_Y:
-      Pts[i].Y = MAX_Y - Pts[i].R
-      Pts[i].VY *= -1.1
-    
-    if Pts[i].Z < MIN_DEPTH:
-      Pts[i].Z = MIN_DEPTH + Pts[i].R
-      Pts[i].VZ *= -1.1
-    
-    if Pts[i].Z > MAX_DEPTH:
-      Pts[i].Z = MAX_DEPTH - Pts[i].R
-      Pts[i].VZ *= -1.1
+    for c in TCoord:
+      {.unroll: 3.}
+      if pts[i].p[c.ord] < Min[c.ord]:
+        pts[i].p[c.ord] = Min[c.ord] + pts[i].r
+        pts[i].v[c.ord] *= -1.1 # These particles are magic; they accelerate by 10% at every bounce off the bounding box
+      
+      if pts[i].p[c.ord] > Max[c.ord]:
+        pts[i].p[c.ord] = Max[c.ord] - pts[i].r
+        pts[i].v[c.ord] *= -1.1
 
 proc cleanupPtPool =
   for i in minPt .. numPts:
@@ -196,42 +169,21 @@ proc initScene =
 template offsetof(typ, field): expr = (var dummy: typ; cast[int](addr(dummy.field)) - cast[int](addr(dummy)))
 
 proc loadCubeToGPU: bool =
-  newVertex(-1, -1, 1)
-  newVertex(1, -1, 1)
-  newVertex(1, 1, 1)
-  newVertex(-1, 1, 1)
-  newNormal(0, 0, 1)
+  newVertexGroup([0.0, 0.0, 1.0], [-1.0, -1.0, 1.0], [1.0, -1.0, 1.0], [1.0, 1.0, 1.0], [-1.0, 1.0, 1.0])
+  newVertexGroup([0.0, 0.0, -1.0], [-1.0, -1.0, -1.0], [-1.0, 1.0, -1.0], [1.0, 1.0, -1.0], [1.0, -1.0, -1.0])
+  newVertexGroup([0.0, 1.0, 0.0], [-1.0, 1.0, -1.0], [-1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, -1.0])
+  newVertexGroup([0.0, -1.0, 0.0], [-1.0, -1.0, -1.0], [1.0, -1.0, -1.0], [1.0, -1.0, 1.0], [-1.0, -1.0, 1.0])
+  newVertexGroup([1.0, 0.0, 0.0], [1.0, -1.0, -1.0], [1.0, 1.0, -1.0], [1.0, 1.0, 1.0], [1.0, -1.0, 1.0])
+  newVertexGroup([-1.0, 0.0, 0.0], [-1.0, -1.0, -1.0], [-1.0, -1.0, 1.0], [-1.0, 1.0, 1.0], [-1.0, 1.0, -1.0])
 
-  newVertex(-1, -1, -1)
-  newVertex(-1, 1, -1)
-  newVertex(1, 1, -1)
-  newVertex(1, -1, -1)
-  newNormal(0, 0, -1)
-
-  newVertex(-1, 1, -1)
-  newVertex(-1, 1, 1)
-  newVertex(1, 1, 1)
-  newVertex(1, 1, -1)
-  newNormal(0, 1, 0)
-
-  newVertex(-1, -1, -1)
-  newVertex(1, -1, -1)
-  newVertex(1, -1, 1)
-  newVertex(-1, -1, 1)
-  newNormal(0, -1, 0)
-
-  newVertex(1, -1, -1)
-  newVertex(1, 1, -1)
-  newVertex(1, 1, 1)
-  newVertex(1, -1, 1)
-  newNormal(1, 0, 0)
-
-  newVertex(-1, -1, -1)
-  newVertex(-1, -1, 1)
-  newVertex(-1, 1, 1)
-  newVertex(-1, 1, -1)
-  newNormal(-1, 0, 0)
-
+  # I'm not sure if implicit type conversions will work. Two versions to test here.
+  #newVertexGroup([0, 0, 1], [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1])
+  #newVertexGroup([0, 0, -1], [-1, -1, -1], [-1, 1, -1], [1, 1, -1], [1, -1, -1])
+  #newVertexGroup([0, 1, 0], [-1, 1, -1], [-1, 1, 1], [1, 1, 1], [1, 1, -1])
+  #newVertexGroup([0, -1, 0], [-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1])
+  #newVertexGroup([1, 0, 0], [1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1])
+  #newVertexGroup([-1, 0, 0], [-1, -1, -1], [-1, -1, 1], [-1, 1, 1], [-1, 1, -1])
+  
   glGenBuffers(1, addr gVBO)
   glBindBuffer(GL_ARRAY_BUFFER, gVBO)
   glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(NUM_VERTICES * sizeof(TVertex)), addr vertices[0], GL_STATIC_DRAW)
@@ -258,7 +210,7 @@ proc renderPts =
     glMatrixMode(GL_MODELVIEW)
     glPopMatrix()
     glPushMatrix()
-    glTranslatef(pt.X, pt.Y, -(pt.Z))
+    glTranslatef(pt.p[TCoord.x], pt.p[TCoord.y], -(pt.p[TCoord.z]))
     glScalef(pt.R * 2, pt.R * 2, pt.R * 2)
     glColor4f(0.7, 0.9, 0.2, 1)
     glDrawArrays(GL_QUADS, 0, NUM_VERTICES)

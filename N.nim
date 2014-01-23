@@ -49,19 +49,6 @@ var
   lightPos = [GlFloat(Min[TCoord.x] + (Max[TCoord.x]-Min[TCoord.x])/2), 
               Max[TCoord.y], Min[TCoord.z], 0]
               
-  initT = 0.0       # Reused variable for timing frames
-  endT = 0.0        # Reused variable for timing frames
-  gpuInitT = 0.0    # Reused variable for timing gpu use
-  gpuEndT = 0.0     # Reused variable for timing gpu use
-  frameDur = 0.0    # Reused variable for storing the duration of the last frame
-  spwnTmr = 0.0     # Timer for particle spawning
-  cleanupTmr = 0.0  # Timer for cleaning up the particle array
-  runTmr = 0.0      # Timer of total running timer
-  
-  frames: array[RunningTime * 1000, float64]    # Array for storing the length of each frame
-  gpuTimes: array[RunningTime * 1000, float64]  # Array for storing the cpu time spent before swapping buffers for each frame
-  curFrame = 0                                  # The current number of frames that have elapsed
-
   numPts = 0               # The maximum index in the pool that currently contains a particle
   minPt = 0                # The minimum index in the pool that currently contains a particle, or zero.
   pts: array[MaxPts, TPt]  # The pool of particles
@@ -70,7 +57,6 @@ var
   
   wind: array[NumCoord, float64] = [0.0, 0.0, 0.0]  # Wind speed. 
   gravity = 0.0'f64
-  seed = 1234569'u32  # Initial PRNG seed, reused as state.
   gVBO: GLuint = 0
 
 
@@ -86,12 +72,13 @@ proc newVertexGroup(normal: array[NumCoord, GLfloat],
     curVertex.inc
 
 proc xorRand: uint32 =
+  var seed {.global.} = 1234569'u32  # Initial PRNG seed, reused as state.
   seed = seed xor (seed shl 13)
   seed = seed xor (seed shr 17)
   seed = seed xor (seed shl 5)
   return seed
 
-proc movePts(secs: float64) =
+proc movePts(secs, gravity: float64) =
   for i in minPt .. numPts:
     if not pts[i].bis:
       continue
@@ -122,9 +109,9 @@ proc spawnPts(secs: float64) =
     pts[numPts] = pt
     numPts.inc
 
-proc doWind() =
+proc doWind(secs: float64) =
   for w in wind:
-    w += (float64(xorRand() mod WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * frameDur
+    w += (float64(xorRand() mod WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * secs
     if abs(w) > MAX_WIND:
       w *= -0.5
 
@@ -220,20 +207,32 @@ proc renderPts =
     glColor4f(0.7, 0.9, 0.2, 1)
     glDrawArrays(GL_QUADS, 0, NUM_VERTICES)
 
-when isMainModule:
+proc main = 
   init()
   var window = newWnd((Width.positive, Height.positive), Title,
     hints=initHints(nMultiSamples=2, GL_API=initGL_API(version=glv21)))
+    
+    initT, endT = 0.0        # Reused variables for timing frames
+    gpuInitT, gpuEndT = 0.0  # Reused variables for timing gpu use
+    frameDur = 0.0           # Reused variable for storing the duration of the last frame
+    spwnTmr = 0.0            # Timer for particle spawning
+    cleanupTmr = 0.0         # Timer for cleaning up the particle array
+    runTmr = 0.0             # Timer of total running time
+    
+    frames: array[RunningTime * 1000, float64]    # Array for storing the length of each frame
+    gpuTimes: array[RunningTime * 1000, float64]  # Array for storing the cpu time spent before swapping buffers for each frame
+    curFrame = 0                                  # The current number of frames that have elapsed
+    
   window.makeContextCurrent()
   swapInterval(0)
   loadExtensions()
-  initScene()
-  
+  initScene()  
   discard loadCubeToGPU()
+  
   while not shouldClose(window):
     initT = getTime()
-    movePts(frameDur)
-    doWind()
+    movePts(frameDur, gravity)
+    doWind(frameDur)
     
     if (spwnTmr >= SPAWN_INTERVAL):
       spawnPts(SPAWN_INTERVAL)
@@ -288,4 +287,6 @@ when isMainModule:
   window.destroy()
   terminate()
 
+when isMainModule:
+  main()
 

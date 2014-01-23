@@ -260,25 +260,26 @@ when isMainModule:
       gpuTimes[curFrame] = gpuEndT - gpuInitT
       curFrame += 1
     
-    if (runTmr >= RUNNING_TIME):  # Animation complete; calculate framerate mean and standard deviation
-      let frameTimeMean = mean frames[0 .. <curFrame]
-      echo("Average framerate was: $1 frames per second." % (1/frameTimeMean).formatFloat)
-      
-      let gpuTimeMean = mean gpuTimes[0 .. <curFrame]
-      echo("Average cpu time was: $1 seconds per frame." %
-           formatFloat(frameTimeMean - gpuTimeMean))
-      
-      let sd = sqrt variance frames[0 .. <curFrame]
-      echo("The standard deviation was: $1 frames per second." % sd.formatFloat)
-      
-      when PRINT_FRAMES:
-        stdout.write("--:")
-        for i in 0 .. <curFrame:
-          stdout.write(formatFloat(1/frames[i], precision=6) & ",")
-        
-        stdout.write(".--") 
-
+    if (runTmr >= RUNNING_TIME):  # Animation complete 
       break
+  
+  # calculate framerate mean and standard deviation
+  let frameTimeMean = mean frames[0 .. <curFrame]
+  echo("Average framerate was: $1 frames per second." % (1/frameTimeMean).formatFloat)
+  
+  let gpuTimeMean = mean gpuTimes[0 .. <curFrame]
+  echo("Average cpu time was: $1 seconds per frame." %
+       formatFloat(frameTimeMean - gpuTimeMean))
+  
+  let sd = sqrt variance frames[0 .. <curFrame]
+  echo("The standard deviation was: $1 frames per second." % sd.formatFloat)
+  
+  when PRINT_FRAMES:
+    stdout.write("--:")
+    for i in 0 .. <curFrame:
+      stdout.write(formatFloat(1/frames[i], precision=6) & ",")
+    
+    stdout.write(".--") 
     
   cleanupBuffers()
   window.destroy()

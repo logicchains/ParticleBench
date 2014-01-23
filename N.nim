@@ -202,11 +202,11 @@ proc cleanupBuffers =
   glDisableClientState( GL_VERTEX_ARRAY )
 
 proc renderPts =
+  var pt: ptr TPt
   for i in minPt .. numPts:
     if (Pts[i].bis == false):
       continue
-    
-    var pt: ptr TPt = addr pts[i]
+    pt = addr pts[i]
     glMatrixMode(GL_MODELVIEW)
     glPopMatrix()
     glPushMatrix()

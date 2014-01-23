@@ -2,13 +2,15 @@ import opengl, glfw/glfw, math, unsigned, strutils
 
 from glfw/wrapper import getTime
 
-const NumCoord = 3
+const 
+  NumCoord = 3
+  NumVertices = 24
 
 type
-  TPt = object
-    p, v : array[NumCoord, float64]
-    r, life: float64
-    bis: bool
+  TPt = object                       # A particle object:
+    p, v : array[NumCoord, float64]  # The position and velocity. 
+    r, life: float64                 # Radius and remaining lifetime
+    bis: bool                        # Living or not
 
   TVertex = object
     pos: array[NumCoord, GLfloat]
@@ -22,49 +24,53 @@ const
   Title = "ParticleBench"
   Width = 800
   Height = 600
-  Min: array[NumCoord, int] = [-80, -90, 50]
-  Max: array[NumCoord, int] = [80, 50, 250]
-  StartRange = 15
+
+  MaxPts = RunningTime * PointsPerSec  # The size of the particle pool
+  MaxInitVel = 7                       # The maximum initial speed of a newly created
+  MaxScale = 4                         # The maximum scale of a particle
+  MaxLife = 5000                       # Maximum particle lifetime in milliseconds
+  PointsPerSec = 2000                  # Particles created per second
+  
+  StartRange = 15  # Twice the maximum distance a particle may be spawned from the start point
   StartY = MaxY
   StartDepth = (Min[TCoord.z] + (Min[TCoord.z]+Max[TCoord.z])/2)
-  PointsPerSec = 2000
-  MaxInitVel = 7
-  MaxLife = 5000
-  MaxScale = 4
-  WindChange = 2000
-  MaxWind = 3
-  SpawnInterval = 0.01
-  RunningTime = ((MaxLife div 1000) * 5)
-  MaxPts = RunningTime * PointsPerSec
-  NumVertices = 24
   
+  Min: array[NumCoord, int] = [-80, -90, 50]  # Array[x, y, z]. 
+  Max: array[NumCoord, int] = [80, 50, 250]   # The Y axis is height, the Z axis is depth
+
+  WindChange = 2000                     # The maximum change in windspeed per second, in milliseconds
+  MaxWind = 3                           # Maximum windspeed in seconds before wind is reversed at half speed
+  SpawnInterval = 0.01                  # How often particles are spawned, in seconds
+  RunningTime = (MaxLife div 1000) * 5  # The total running time of the animation, in ms
+
 var
   ambient = [Glfloat(0.8), 0.05, 0.1, 1.0]
   diffuse = [Glfloat(1.0), 1.0, 1.0, 1.0]
   lightPos = [GlFloat(Min[TCoord.x] + (Max[TCoord.x]-Min[TCoord.x])/2), 
               Max[TCoord.y], Min[TCoord.z], 0]
               
-  initT = 0.0
-  endT = 0.0
-  gpuInitT = 0.0
-  gpuEndT = 0.0
-  frameDur = 0.0
-  spwnTmr = 0.0
-  cleanupTmr = 0.0
-  runTmr = 0.0
-  frames: array[RunningTime * 1000, float64]
-  gpuTimes: array[RunningTime * 1000, float64]
-  curFrame = 0
+  initT = 0.0       # Reused variable for timing frames
+  endT = 0.0        # Reused variable for timing frames
+  gpuInitT = 0.0    # Reused variable for timing gpu use
+  gpuEndT = 0.0     # Reused variable for timing gpu use
+  frameDur = 0.0    # Reused variable for storing the duration of the last frame
+  spwnTmr = 0.0     # Timer for particle spawning
+  cleanupTmr = 0.0  # Timer for cleaning up the particle array
+  runTmr = 0.0      # Timer of total running timer
+  
+  frames: array[RunningTime * 1000, float64]    # Array for storing the length of each frame
+  gpuTimes: array[RunningTime * 1000, float64]  # Array for storing the cpu time spent before swapping buffers for each frame
+  curFrame = 0                                  # The current number of frames that have elapsed
 
-  numPts = 0
-  minPt = 0
-  pts: array[MaxPts, TPt]
+  numPts = 0               # The maximum index in the pool that currently contains a particle
+  minPt = 0                # The minimum index in the pool that currently contains a particle, or zero.
+  pts: array[MaxPts, TPt]  # The pool of particles
   vertices: array[NumVertices, TVertex]
   curVertex = 0
   
-  wind: array[NumCoord, float64] = [0.0, 0.0, 0.0]
+  wind: array[NumCoord, float64] = [0.0, 0.0, 0.0]  # Wind speed. 
   gravity = 0.0'f64
-  seed = 1234569'u32
+  seed = 1234569'u32  # Initial PRNG seed, reused as state.
   gVBO: GLuint = 0
 
 
@@ -92,9 +98,10 @@ proc movePts(secs: float64) =
     for c in TCoord:
       {.unroll: 3.}
       pts[i].p[c.ord] += pts[i].v[c.ord] * secs
-      pts[i].p[c.ord] += wind[c.ord] * 1/pts[i].r
+      pts[i].p[c.ord] += wind[c.ord] * 1/pts[i].r  # The effect of the wind on a particle is inversely proportional to its radius
     pts[i].vy -= gravity
     pts[i].life -= secs
+    
     if pts[i].life <= 0:
       pts[i].bis = false
     
@@ -130,16 +137,16 @@ proc checkColls() =
       {.unroll: 3.}
       if pts[i].p[c.ord] < Min[c.ord]:
         pts[i].p[c.ord] = Min[c.ord] + pts[i].r
-        pts[i].v[c.ord] *= -1.1 # These particles are magic; they accelerate by 10% at every bounce off the bounding box
+        pts[i].v[c.ord] *= -1.1  # These particles are magic; they accelerate by 10% at every bounce off the bounding box
       
       if pts[i].p[c.ord] > Max[c.ord]:
         pts[i].p[c.ord] = Max[c.ord] - pts[i].r
         pts[i].v[c.ord] *= -1.1
 
-proc cleanupPtPool =
+proc cleanupPtPool =  # Move minPt forward to the first index in the point array that contains a valid point
   for i in minPt .. numPts:
     if Pts[i].bis:
-      minPt = i
+      minPt = i  # After 2*LifeTime, the minPt should be at around (LifeTime in seconds)*PointsPerSec
       break
 
 proc initScene =

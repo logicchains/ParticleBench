@@ -98,13 +98,12 @@ proc movePts(secs: float64) =
     for c in TCoord:
       {.unroll: 3.}
       pts[i].p[c.ord] += pts[i].v[c.ord] * secs
-      pts[i].p[c.ord] += wind[c.ord] * 1/pts[i].r  # The effect of the wind on a particle is inversely proportional to its radius
-    pts[i].vy -= gravity
+      pts[i].p[c.ord] += wind[c.ord] * 1/pts[i].r  # The effect of the wind on a particle is 
+    pts[i].vy -= gravity                           # inversely proportional to its radius.
     pts[i].life -= secs
     
     if pts[i].life <= 0:
       pts[i].bis = false
-    
 
 proc spawnPts(secs: float64) =
   let num = secs * PointsPerSec
@@ -260,8 +259,8 @@ when isMainModule:
     cleanupTmr += frameDur
     runTmr += frameDur
     
-    if (runTmr > MAX_LIFE/1000):  # Start collecting framerate data and profiling after a full MaxLife worth of particles have been spawned
-      frames[curFrame] = frameDur
+    if (runTmr > MAX_LIFE/1000):    # Start collecting framerate data and profiling after a 
+      frames[curFrame] = frameDur   # full MaxLife worth of particles have been spawned.
       gpuTimes[curFrame] = gpuEndT - gpuInitT
       curFrame += 1
     

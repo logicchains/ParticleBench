@@ -2,22 +2,19 @@ import opengl, glfw/glfw, math, unsigned, strutils
 
 from glfw/wrapper import getTime
 
-const 
-  NumCoord = 3
-  NumVertices = 24
-
 type
+  TCoord = enum
+    x, y, z
+
   TPt = object                       # A particle object:
-    p, v : array[NumCoord, float64]  # The position and velocity. 
+    p, v : array[TCoord, float64]  # The position and velocity. 
     r, life: float64                 # Radius and remaining lifetime
     bis: bool                        # Living or not
 
   TVertex = object
-    pos: array[NumCoord, GLfloat]
-    normal: array[NumCoord, GLfloat]
+    pos: array[TCoord, GLfloat]
+    normal: array[TCoord, GLfloat]
   
-  TCoord = enum
-    x, y, z
 
 const
   PrintFrames = true
@@ -25,50 +22,49 @@ const
   Width = 800
   Height = 600
 
-  MaxPts = RunningTime * PointsPerSec  # The size of the particle pool
-  MaxInitVel = 7                       # The maximum initial speed of a newly created
-  MaxScale = 4                         # The maximum scale of a particle
-  MaxLife = 5000                       # Maximum particle lifetime in milliseconds
-  PointsPerSec = 2000                  # Particles created per second
+  MaxLife = 5000                        # Maximum particle lifetime in milliseconds
+  PointsPerSec = 2000                   # Particles created per second  
+  RunningTime = (MaxLife div 1000) * 5  # The total running time of the animation, in ms
+  MaxPts = RunningTime * PointsPerSec   # The size of the particle pool
+  MaxInitVel = 7                        # The maximum initial speed of a newly created
+  MaxScale = 4                          # The maximum scale of a particle
+
+  Min: array[TCoord, float] = [-80.0, -90.0, 50.0]  # Array[x, y, z]. 
+  Max: array[TCoord, float] = [80.0, 50.0, 250.0]   # The Y axis is height, the Z axis is depth
   
   StartRange = 15  # Twice the maximum distance a particle may be spawned from the start point
-  StartY = MaxY
-  StartDepth = (Min[TCoord.z] + (Min[TCoord.z]+Max[TCoord.z])/2)
-  
-  Min: array[NumCoord, int] = [-80, -90, 50]  # Array[x, y, z]. 
-  Max: array[NumCoord, int] = [80, 50, 250]   # The Y axis is height, the Z axis is depth
-
+  StartY = Max[y]
+  StartDepth = (Min[z] + (Min[z]+Max[z])/2)
+ 
   WindChange = 2000                     # The maximum change in windspeed per second, in milliseconds
   MaxWind = 3                           # Maximum windspeed in seconds before wind is reversed at half speed
   SpawnInterval = 0.01                  # How often particles are spawned, in seconds
-  RunningTime = (MaxLife div 1000) * 5  # The total running time of the animation, in ms
-
+  NumVertices = 24
+  
 var
   ambient = [Glfloat(0.8), 0.05, 0.1, 1.0]
   diffuse = [Glfloat(1.0), 1.0, 1.0, 1.0]
-  lightPos = [GlFloat(Min[TCoord.x] + (Max[TCoord.x]-Min[TCoord.x])/2), 
-              Max[TCoord.y], Min[TCoord.z], 0]
+  lightPos = [GlFloat(Min[x] + (Max[x]-Min[x])/2), 
+              Max[y], Min[z], 0]
               
   numPts = 0               # The maximum index in the pool that currently contains a particle
   minPt = 0                # The minimum index in the pool that currently contains a particle, or zero.
   pts: array[MaxPts, TPt]  # The pool of particles
+
   vertices: array[NumVertices, TVertex]
   curVertex = 0
   
-  wind: array[NumCoord, float64] = [0.0, 0.0, 0.0]  # Wind speed. 
-  gravity = 0.0'f64
+  wind: array[TCoord, float64] = [0.0, 0.0, 0.0]  # Wind speed. 
+  gravity = 0.5'f64
   gVBO: GLuint = 0
+   
+    
+proc GV(x, y, z: TNumber) : array[TCoord, GLfloat] = [GlFloat(x), GlFloat(y), GlFloat(z)]
 
-
-converter toGLFV(pos: array[NumCoord,TNumber]) : array[NumCoord, GLfloat] =
-  for i, e in pos: # is it ok to GlFloat() only the first element of the array?
-    {.unroll 3.}
-    result[i] = GlFloat(e)
-  
-proc newVertexGroup(normal: array[NumCoord, GLfloat],
-                    pos: varargs[array[NumCoord, GLfloat]]) =
+proc newVertexGroup(normal: array[TCoord, GLfloat],
+                    pos: varargs[array[TCoord, GLfloat]]) =
   for p in pos:
-    vertices[curVertex] = TVertex(p, normal)
+    vertices[curVertex] = TVertex(pos: p,normal: normal)
     curVertex.inc
 
 proc xorRand: uint32 =
@@ -84,9 +80,9 @@ proc movePts(secs, gravity: float64) =
       continue
     for c in TCoord:
       {.unroll: 3.}
-      pts[i].p[c.ord] += pts[i].v[c.ord] * secs
-      pts[i].p[c.ord] += wind[c.ord] * 1/pts[i].r  # The effect of the wind on a particle is 
-    pts[i].vy -= gravity                           # inversely proportional to its radius.
+      pts[i].p[c] += pts[i].v[c] * secs
+      pts[i].p[c] += wind[c] * 1/pts[i].r  # The effect of the wind on a particle is 
+    pts[i].v[y] -= gravity                           # inversely proportional to its radius.
     pts[i].life -= secs
     
     if pts[i].life <= 0:
@@ -110,10 +106,10 @@ proc spawnPts(secs: float64) =
     numPts.inc
 
 proc doWind(secs: float64) =
-  for w in wind:
-    w += (float64(xorRand() mod WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * secs
-    if abs(w) > MAX_WIND:
-      w *= -0.5
+  for c in TCoord:
+    wind[c] += (float64(xorRand() mod WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * secs
+    if abs(wind[c]) > MAX_WIND:
+      wind[c] *= -0.5
 
 proc checkColls() =
   for i in minPt .. numPts:
@@ -121,13 +117,13 @@ proc checkColls() =
       continue
     for c in TCoord:
       {.unroll: 3.}
-      if pts[i].p[c.ord] < Min[c.ord]:
-        pts[i].p[c.ord] = Min[c.ord] + pts[i].r
-        pts[i].v[c.ord] *= -1.1  # These particles are magic; they accelerate by 10% at every bounce off the bounding box
+      if pts[i].p[c] < Min[c]:
+        pts[i].p[c] = Min[c] + pts[i].r
+        pts[i].v[c] *= -1.1  # These particles are magic; they accelerate by 10% at every bounce off the bounding box
       
-      if pts[i].p[c.ord] > Max[c.ord]:
-        pts[i].p[c.ord] = Max[c.ord] - pts[i].r
-        pts[i].v[c.ord] *= -1.1
+      if pts[i].p[c] > Max[c]:
+        pts[i].p[c] = Max[c] - pts[i].r
+        pts[i].v[c] *= -1.1
 
 proc cleanupPtPool =  # Move minPt forward to the first index in the point array that contains a valid point
   for i in minPt .. numPts:
@@ -160,20 +156,12 @@ proc initScene =
 template offsetof(typ, field): expr = (var dummy: typ; cast[int](addr(dummy.field)) - cast[int](addr(dummy)))
 
 proc loadCubeToGPU: bool =
-  newVertexGroup([0.0, 0.0, 1.0], [-1.0, -1.0, 1.0], [1.0, -1.0, 1.0], [1.0, 1.0, 1.0], [-1.0, 1.0, 1.0])
-  newVertexGroup([0.0, 0.0, -1.0], [-1.0, -1.0, -1.0], [-1.0, 1.0, -1.0], [1.0, 1.0, -1.0], [1.0, -1.0, -1.0])
-  newVertexGroup([0.0, 1.0, 0.0], [-1.0, 1.0, -1.0], [-1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, -1.0])
-  newVertexGroup([0.0, -1.0, 0.0], [-1.0, -1.0, -1.0], [1.0, -1.0, -1.0], [1.0, -1.0, 1.0], [-1.0, -1.0, 1.0])
-  newVertexGroup([1.0, 0.0, 0.0], [1.0, -1.0, -1.0], [1.0, 1.0, -1.0], [1.0, 1.0, 1.0], [1.0, -1.0, 1.0])
-  newVertexGroup([-1.0, 0.0, 0.0], [-1.0, -1.0, -1.0], [-1.0, -1.0, 1.0], [-1.0, 1.0, 1.0], [-1.0, 1.0, -1.0])
-
-  # I'm not sure if implicit type conversions will work. Two versions to test here.
-  #newVertexGroup([0, 0, 1], [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1])
-  #newVertexGroup([0, 0, -1], [-1, -1, -1], [-1, 1, -1], [1, 1, -1], [1, -1, -1])
-  #newVertexGroup([0, 1, 0], [-1, 1, -1], [-1, 1, 1], [1, 1, 1], [1, 1, -1])
-  #newVertexGroup([0, -1, 0], [-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1])
-  #newVertexGroup([1, 0, 0], [1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1])
-  #newVertexGroup([-1, 0, 0], [-1, -1, -1], [-1, -1, 1], [-1, 1, 1], [-1, 1, -1])
+  newVertexGroup(GV(0, 0, 1), GV(-1, -1, 1), GV(1, -1, 1), GV(1, 1, 1), GV(-1, 1, 1))
+  newVertexGroup(GV(0, 0, -1), GV(-1, -1, -1), GV(-1, 1, -1), GV(1, 1, -1), GV(1, -1, -1))
+  newVertexGroup(GV(0, 1, 0), GV(-1, 1, -1), GV(-1, 1, 1), GV(1, 1, 1), GV(1, 1, -1))
+  newVertexGroup(GV(0, -1, 0), GV(-1, -1, -1), GV(1, -1, -1), GV(1, -1, 1), GV(-1, -1, 1))
+  newVertexGroup(GV(1, 0, 0), GV(1, -1, -1), GV(1, 1, -1), GV(1, 1, 1), GV(1, -1, 1))
+  newVertexGroup(GV(-1, 0, 0), GV(-1, -1, -1), GV(-1, -1, 1), GV(-1, 1, 1), GV(-1, 1, -1))
   
   glGenBuffers(1, addr gVBO)
   glBindBuffer(GL_ARRAY_BUFFER, gVBO)
@@ -202,15 +190,16 @@ proc renderPts =
     glMatrixMode(GL_MODELVIEW)
     glPopMatrix()
     glPushMatrix()
-    glTranslatef(pt.p[TCoord.x], pt.p[TCoord.y], -(pt.p[TCoord.z]))
+    glTranslatef(pt.p[x], pt.p[y], -(pt.p[z]))
     glScalef(pt.R * 2, pt.R * 2, pt.R * 2)
     glColor4f(0.7, 0.9, 0.2, 1)
     glDrawArrays(GL_QUADS, 0, NUM_VERTICES)
 
 proc main = 
   init()
-  var window = newWnd((Width.positive, Height.positive), Title,
-    hints=initHints(nMultiSamples=2, GL_API=initGL_API(version=glv21)))
+  var 
+    window = newWnd((Width.positive, Height.positive), Title,
+        hints=initHints(nMultiSamples=2, GL_API=initGL_API(version=glv21)))
     
     initT, endT = 0.0        # Reused variables for timing frames
     gpuInitT, gpuEndT = 0.0  # Reused variables for timing gpu use
@@ -219,8 +208,8 @@ proc main =
     cleanupTmr = 0.0         # Timer for cleaning up the particle array
     runTmr = 0.0             # Timer of total running time
     
-    frames: array[RunningTime * 1000, float64]    # Array for storing the length of each frame
-    gpuTimes: array[RunningTime * 1000, float64]  # Array for storing the cpu time spent before swapping buffers for each frame
+    frames: array[RunningTime * 1000, float64]    # Length of each frame
+    gpuTimes: array[RunningTime * 1000, float64]  # Cpu time spent before swapping buffers for each frame
     curFrame = 0                                  # The current number of frames that have elapsed
     
   window.makeContextCurrent()
@@ -266,14 +255,14 @@ proc main =
     if (runTmr >= RUNNING_TIME):  # Animation complete 
       break
   
-  let frameTimeMean = mean frames[0 .. <curFrame]
+  let frameTimeMean = mean(frames[0 .. <curFrame])
   echo("Average framerate was: $1 frames per second." % (1/frameTimeMean).formatFloat)
   
-  let gpuTimeMean = mean gpuTimes[0 .. <curFrame]
+  let gpuTimeMean = mean(gpuTimes[0 .. <curFrame])
   echo("Average cpu time was: $1 seconds per frame." %
        formatFloat(frameTimeMean - gpuTimeMean))
   
-  let sd = sqrt variance frames[0 .. <curFrame]
+  let sd = sqrt(variance(frames[0 .. <curFrame]))
   echo("The standard deviation was: $1 frames per second." % sd.formatFloat)
   
   when PRINT_FRAMES:

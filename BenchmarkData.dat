@@ -25,3 +25,6 @@ racket Rkt.rkt
 Common Lisp
 -
 sbcl --load Lisp.lisp --eval "(pb:run)"
+Clojure
+-
+cd cjpb && lein run

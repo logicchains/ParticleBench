@@ -14,7 +14,7 @@ type
   TVertex = object
     pos: array[TCoord, GLfloat]
     normal: array[TCoord, GLfloat]
-    
+
 const
   PrintFrames = true
   Title = "ParticleBench"
@@ -39,7 +39,7 @@ const
   MaxWind = 3                           # Maximum windspeed in seconds before wind is reversed at half speed
   SpawnInterval = 0.01                  # How often particles are spawned, in seconds
   NumVertices = 24
-  
+
 var
   ambient = [Glfloat(0.8), 0.05, 0.1, 1.0]
   diffuse = [Glfloat(1.0), 1.0, 1.0, 1.0]
@@ -51,12 +51,12 @@ var
   gravity = 0.5'f64
   gVBO: GLuint = 0
    
-type TPts = ref object
+type TPts = object
   low, high: int            # The index range in the pool that currently contains a particle
   pool: array[MaxPts, TPt]  # The pool of particles
   
-proc `[]`(pts: Tpts, key: int): var TPt = pts.pool[key]
-proc `[]=`(pts: Tpts, key: int, val: TPt) = pts.pool[key] = val
+proc `[]`(pts: var Tpts, key: int): var TPt = pts.pool[key]
+proc `[]=`(pts: var Tpts, key: int, val: TPt) = pts.pool[key] = val
 
 proc toGlVec(a: Array[3, int]) : array[TCoord, GLfloat] = 
   return [GlFloat(a[x.ord]), GlFloat(a[y.ord]), GlFloat(a[z.ord])]
@@ -74,21 +74,21 @@ proc xorRand: uint32 =
   seed = seed xor (seed shl 5)
   return seed
 
-proc move(pts: TPts, secs, gravity: float64) =
+proc move(pts: var TPts, secs, gravity: float64) =
   for i in pts.low .. pts.high:
     if not pts[i].bis:
       continue
     for c in TCoord:
       {.unroll: 3.}
       pts[i].p[c] += pts[i].v[c] * secs
-      pts[i].p[c] += wind[c] * 1 / pts[i].r  # The effect of the wind on a particle is 
+      pts[i].v[c] += wind[c] * 1 / pts[i].r  # The effect of the wind on a particle is 
     pts[i].v[y] -= gravity                           # inversely proportional to its radius.
     pts[i].life -= secs
     
     if pts[i].life <= 0:
       pts[i].bis = false
-
-proc spawn(pts: TPts, secs: float64) =
+      
+proc spawn(pts: var TPts, secs: float64) =
   let num = secs * PointsPerSec
   for i in 0 .. <num.int:
     pts[pts.high] = TPt(
@@ -110,7 +110,7 @@ proc doWind(secs: float64) =
     if abs(wind[c]) > MAX_WIND:
       wind[c] *= -0.5
 
-proc checkColls(pts: TPts) =
+proc checkColls(pts: var TPts) =
   for i in pts.low .. pts.high:
     if not pts[i].bis:
       continue
@@ -124,7 +124,7 @@ proc checkColls(pts: TPts) =
         pts[i].p[c] = Max[c] - pts[i].r
         pts[i].v[c] *= -1.1
 
-proc cleanupPtPool(pts: TPts) =  # Move pts.low forward to the first index in   
+proc cleanupPtPool(pts: var TPts) =  # Move pts.low forward to the first index in   
   for i in pts.low .. pts.high:  # the point array that contains a valid point
     if Pts[i].bis:
       pts.low = i  # After 2*LifeTime, the pts.low should be at around (LifeTime in seconds)*PointsPerSec
@@ -161,7 +161,7 @@ proc loadCubeToGPU: bool =
   newVertexGroup([0, -1, 0], [-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1])
   newVertexGroup([1, 0, 0] , [1, -1, -1] , [1, 1, -1] , [1, 1, 1] , [1, -1, 1] )
   newVertexGroup([-1, 0, 0], [-1, -1, -1], [-1, -1, 1], [-1, 1, 1], [-1, 1, -1])
-  
+
   glGenBuffers(1, addr gVBO)
   glBindBuffer(GL_ARRAY_BUFFER, gVBO)
   glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(NUM_VERTICES * sizeof(TVertex)), addr vertices[0], GL_STATIC_DRAW)
@@ -179,13 +179,12 @@ proc cleanupBuffers =
   glDisableClientState( GL_NORMAL_ARRAY )
   glDisableClientState( GL_VERTEX_ARRAY )
 
-proc render(pts: TPts) =
-  var pt: ptr TPt
+proc render(pts: var TPts) =
   for i in pts.low .. pts.high:
     if (Pts[i].bis == false):
       continue
-      
-    pt = addr pts[i]
+    
+    var pt: ptr TPt = addr pts[i]
     glMatrixMode(GL_MODELVIEW)
     glPopMatrix()
     glPushMatrix()
@@ -254,14 +253,27 @@ proc main =
     
     if (runTmr >= RUNNING_TIME):  # Animation complete 
       break
+      
+  var sum = 0'f64
+  for i in 0 .. <curFrame:
+    sum += frames[i]
   
-  let 
-    frameTimeMean = mean(frames[0 .. <curFrame])
-    cpuTimeMean = frameTimeMean - mean(gpuTimes[0 .. <curFrame])
-    sd = sqrt(variance(frames[0 .. <curFrame]))
-    
+  var frameTimeMean = sum / curFrame.float64
   echo("Average framerate was: $1 frames per second." % (1/frameTimeMean).formatFloat)
-  echo("Average cpu time was: $1 seconds per frame." % cpuTimeMean.formatFloat)
+  
+  sum = 0
+  for i in 0 .. <curFrame:
+    sum += gpuTimes[i]
+  var gpuTimeMean = sum / curFrame.float64
+  echo("Average cpu time was: $1 seconds per frame." %
+       formatFloat(frameTimeMean - gpuTimeMean))
+  
+  var sumDiffs = 0.0
+  for i in 0 .. <curFrame:
+    sumDiffs += pow((1/frames[i])-(1/frameTimeMean), 2)
+  
+  var variance = sumDiffs / curFrame.float64
+  var sd = sqrt(variance)
   echo("The standard deviation was: $1 frames per second." % sd.formatFloat)
   
   when PRINT_FRAMES:
@@ -269,7 +281,7 @@ proc main =
     for i in 0 .. <curFrame:
       stdout.write(formatFloat(1/frames[i], precision=6) & ",")
     
-    stdout.write(".--") 
+    stdout.write(".--\n") 
     
   cleanupBuffers()
   window.destroy()
@@ -277,4 +289,3 @@ proc main =
 
 when isMainModule:
   main()
-

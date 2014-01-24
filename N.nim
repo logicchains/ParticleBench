@@ -253,14 +253,13 @@ proc main =
     if (runTmr >= RUNNING_TIME):  # Animation complete 
       break
   
-  let frameTimeMean = mean(frames[0 .. <curFrame])
+  let 
+    frameTimeMean = mean(frames[0 .. <curFrame])
+    cpuTimeMean = frameTimeMean - mean(gpuTimes[0 .. <curFrame])
+    sd = sqrt(variance(frames[0 .. <curFrame]))
+    
   echo("Average framerate was: $1 frames per second." % (1/frameTimeMean).formatFloat)
-  
-  let gpuTimeMean = mean(gpuTimes[0 .. <curFrame])
-  echo("Average cpu time was: $1 seconds per frame." %
-       formatFloat(frameTimeMean - gpuTimeMean))
-  
-  let sd = sqrt(variance(frames[0 .. <curFrame]))
+  echo("Average cpu time was: $1 seconds per frame." % cpuTimeMean.formatFloat)
   echo("The standard deviation was: $1 frames per second." % sd.formatFloat)
   
   when PRINT_FRAMES:

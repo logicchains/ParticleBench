@@ -81,7 +81,7 @@ proc move(pts: TPts, secs, gravity: float64) =
     for c in TCoord:
       {.unroll: 3.}
       pts[i].p[c] += pts[i].v[c] * secs
-      pts[i].p[c] += wind[c] * 1/pts[i].r  # The effect of the wind on a particle is 
+      pts[i].p[c] += wind[c] * 1 / pts[i].r  # The effect of the wind on a particle is 
     pts[i].v[y] -= gravity                           # inversely proportional to its radius.
     pts[i].life -= secs
     
@@ -91,7 +91,7 @@ proc move(pts: TPts, secs, gravity: float64) =
 proc spawn(pts: TPts, secs: float64) =
   let num = secs * PointsPerSec
   for i in 0 .. <num.int:
-    var pt = TPt(
+    pts[pts.high] = TPt(
       p: [0 + float64(xorRand() mod START_RANGE) - START_RANGE/2,
         startY,
         startDepth + float64(xorRand() mod START_RANGE) - START_RANGE/2],
@@ -102,7 +102,6 @@ proc spawn(pts: TPts, secs: float64) =
       life: float64(xorRand() mod MaxLife) / 1000,
       bis: true
     )
-    pts[pts.high] = pt
     pts.high.inc
 
 proc doWind(secs: float64) =
@@ -156,11 +155,11 @@ proc initScene =
 template offsetof(typ, field): expr = (var dummy: typ; cast[int](addr(dummy.field)) - cast[int](addr(dummy)))
 
 proc loadCubeToGPU: bool =
-  newVertexGroup([0, 0, 1], [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1])
+  newVertexGroup([0, 0, 1] , [-1, -1, 1] , [1, -1, 1] , [1, 1, 1] , [-1, 1, 1] )
   newVertexGroup([0, 0, -1], [-1, -1, -1], [-1, 1, -1], [1, 1, -1], [1, -1, -1])
-  newVertexGroup([0, 1, 0], [-1, 1, -1], [-1, 1, 1], [1, 1, 1], [1, 1, -1])
+  newVertexGroup([0, 1, 0] , [-1, 1, -1] , [-1, 1, 1] , [1, 1, 1] , [1, 1, -1] )
   newVertexGroup([0, -1, 0], [-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1])
-  newVertexGroup([1, 0, 0], [1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1])
+  newVertexGroup([1, 0, 0] , [1, -1, -1] , [1, 1, -1] , [1, 1, 1] , [1, -1, 1] )
   newVertexGroup([-1, 0, 0], [-1, -1, -1], [-1, -1, 1], [-1, 1, 1], [-1, 1, -1])
   
   glGenBuffers(1, addr gVBO)

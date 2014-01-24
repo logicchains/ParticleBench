@@ -14,7 +14,6 @@ type
   TVertex = object
     pos: array[TCoord, GLfloat]
     normal: array[TCoord, GLfloat]
-  
 
 const
   PrintFrames = true
@@ -50,21 +49,20 @@ var
   numPts = 0               # The maximum index in the pool that currently contains a particle
   minPt = 0                # The minimum index in the pool that currently contains a particle, or zero.
   pts: array[MaxPts, TPt]  # The pool of particles
-
   vertices: array[NumVertices, TVertex]
-  curVertex = 0
   
   wind: array[TCoord, float64] = [0.0, 0.0, 0.0]  # Wind speed. 
   gravity = 0.5'f64
   gVBO: GLuint = 0
    
     
-proc GV(x, y, z: TNumber) : array[TCoord, GLfloat] = [GlFloat(x), GlFloat(y), GlFloat(z)]
+proc toGlVec(a: Array[3, int]) : array[TCoord, GLfloat] = 
+  return [GlFloat(a[x.ord]), GlFloat(a[y.ord]), GlFloat(a[z.ord])]
 
-proc newVertexGroup(normal: array[TCoord, GLfloat],
-                    pos: varargs[array[TCoord, GLfloat]]) =
+proc newVertexGroup(normal: Array[3, int], pos: varargs[Array[3, int]]) =
+  var curVertex {.global.} = 0
   for p in pos:
-    vertices[curVertex] = TVertex(pos: p,normal: normal)
+    vertices[curVertex] = TVertex(pos: toGlVec(p),normal: toGlVec(normal))
     curVertex.inc
 
 proc xorRand: uint32 =
@@ -156,12 +154,12 @@ proc initScene =
 template offsetof(typ, field): expr = (var dummy: typ; cast[int](addr(dummy.field)) - cast[int](addr(dummy)))
 
 proc loadCubeToGPU: bool =
-  newVertexGroup(GV(0, 0, 1), GV(-1, -1, 1), GV(1, -1, 1), GV(1, 1, 1), GV(-1, 1, 1))
-  newVertexGroup(GV(0, 0, -1), GV(-1, -1, -1), GV(-1, 1, -1), GV(1, 1, -1), GV(1, -1, -1))
-  newVertexGroup(GV(0, 1, 0), GV(-1, 1, -1), GV(-1, 1, 1), GV(1, 1, 1), GV(1, 1, -1))
-  newVertexGroup(GV(0, -1, 0), GV(-1, -1, -1), GV(1, -1, -1), GV(1, -1, 1), GV(-1, -1, 1))
-  newVertexGroup(GV(1, 0, 0), GV(1, -1, -1), GV(1, 1, -1), GV(1, 1, 1), GV(1, -1, 1))
-  newVertexGroup(GV(-1, 0, 0), GV(-1, -1, -1), GV(-1, -1, 1), GV(-1, 1, 1), GV(-1, 1, -1))
+  newVertexGroup([0, 0, 1], [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1])
+  newVertexGroup([0, 0, -1], [-1, -1, -1], [-1, 1, -1], [1, 1, -1], [1, -1, -1])
+  newVertexGroup([0, 1, 0], [-1, 1, -1], [-1, 1, 1], [1, 1, 1], [1, 1, -1])
+  newVertexGroup([0, -1, 0], [-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1])
+  newVertexGroup([1, 0, 0], [1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1])
+  newVertexGroup([-1, 0, 0], [-1, -1, -1], [-1, -1, 1], [-1, 1, 1], [-1, 1, -1])
   
   glGenBuffers(1, addr gVBO)
   glBindBuffer(GL_ARRAY_BUFFER, gVBO)

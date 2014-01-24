@@ -14,7 +14,7 @@ type
   TVertex = object
     pos: array[TCoord, GLfloat]
     normal: array[TCoord, GLfloat]
-
+    
 const
   PrintFrames = true
   Title = "ParticleBench"
@@ -46,16 +46,18 @@ var
   lightPos = [GlFloat(Min[x] + (Max[x]-Min[x])/2), 
               Max[y], Min[z], 0]
               
-  numPts = 0               # The maximum index in the pool that currently contains a particle
-  minPt = 0                # The minimum index in the pool that currently contains a particle, or zero.
-  pts: array[MaxPts, TPt]  # The pool of particles
-  vertices: array[NumVertices, TVertex]
-  
+  vertices: array[NumVertices, TVertex]  
   wind: array[TCoord, float64] = [0.0, 0.0, 0.0]  # Wind speed. 
   gravity = 0.5'f64
   gVBO: GLuint = 0
    
-    
+type TPts = ref object
+  low, high: int            # The index range in the pool that currently contains a particle
+  pool: array[MaxPts, TPt]  # The pool of particles
+  
+proc `[]`(pts: Tpts, key: int): var TPt = pts.pool[key]
+proc `[]=`(pts: Tpts, key: int, val: TPt) = pts.pool[key] = val
+
 proc toGlVec(a: Array[3, int]) : array[TCoord, GLfloat] = 
   return [GlFloat(a[x.ord]), GlFloat(a[y.ord]), GlFloat(a[z.ord])]
 
@@ -72,8 +74,8 @@ proc xorRand: uint32 =
   seed = seed xor (seed shl 5)
   return seed
 
-proc movePts(secs, gravity: float64) =
-  for i in minPt .. numPts:
+proc move(pts: TPts, secs, gravity: float64) =
+  for i in pts.low .. pts.high:
     if not pts[i].bis:
       continue
     for c in TCoord:
@@ -86,7 +88,7 @@ proc movePts(secs, gravity: float64) =
     if pts[i].life <= 0:
       pts[i].bis = false
 
-proc spawnPts(secs: float64) =
+proc spawn(pts: TPts, secs: float64) =
   let num = secs * PointsPerSec
   for i in 0 .. <num.int:
     var pt = TPt(
@@ -100,8 +102,8 @@ proc spawnPts(secs: float64) =
       life: float64(xorRand() mod MaxLife) / 1000,
       bis: true
     )
-    pts[numPts] = pt
-    numPts.inc
+    pts[pts.high] = pt
+    pts.high.inc
 
 proc doWind(secs: float64) =
   for c in TCoord:
@@ -109,24 +111,24 @@ proc doWind(secs: float64) =
     if abs(wind[c]) > MAX_WIND:
       wind[c] *= -0.5
 
-proc checkColls() =
-  for i in minPt .. numPts:
+proc checkColls(pts: TPts) =
+  for i in pts.low .. pts.high:
     if not pts[i].bis:
       continue
     for c in TCoord:
       {.unroll: 3.}
       if pts[i].p[c] < Min[c]:
         pts[i].p[c] = Min[c] + pts[i].r
-        pts[i].v[c] *= -1.1  # These particles are magic; they accelerate by 10% at every bounce off the bounding box
-      
+        pts[i].v[c] *= -1.1  # These particles are magic; 
+                             # they accelerate by 10% at every bounce off the bounding box
       if pts[i].p[c] > Max[c]:
         pts[i].p[c] = Max[c] - pts[i].r
         pts[i].v[c] *= -1.1
 
-proc cleanupPtPool =  # Move minPt forward to the first index in the point array that contains a valid point
-  for i in minPt .. numPts:
+proc cleanupPtPool(pts: TPts) =  # Move pts.low forward to the first index in   
+  for i in pts.low .. pts.high:  # the point array that contains a valid point
     if Pts[i].bis:
-      minPt = i  # After 2*LifeTime, the minPt should be at around (LifeTime in seconds)*PointsPerSec
+      pts.low = i  # After 2*LifeTime, the pts.low should be at around (LifeTime in seconds)*PointsPerSec
       break
 
 proc initScene =
@@ -178,9 +180,9 @@ proc cleanupBuffers =
   glDisableClientState( GL_NORMAL_ARRAY )
   glDisableClientState( GL_VERTEX_ARRAY )
 
-proc renderPts =
+proc render(pts: TPts) =
   var pt: ptr TPt
-  for i in minPt .. numPts:
+  for i in pts.low .. pts.high:
     if (Pts[i].bis == false):
       continue
       
@@ -206,6 +208,7 @@ proc main =
     cleanupTmr = 0.0         # Timer for cleaning up the particle array
     runTmr = 0.0             # Timer of total running time
     
+    pts = TPts(low: 0, high: 0)
     frames: array[RunningTime * 1000, float64]    # Length of each frame
     gpuTimes: array[RunningTime * 1000, float64]  # Cpu time spent before swapping buffers for each frame
     curFrame = 0                                  # The current number of frames that have elapsed
@@ -218,22 +221,22 @@ proc main =
   
   while not shouldClose(window):
     initT = getTime()
-    movePts(frameDur, gravity)
+    pts.move(frameDur, gravity)
     doWind(frameDur)
     
     if (spwnTmr >= SPAWN_INTERVAL):
-      spawnPts(SPAWN_INTERVAL)
+      pts.spawn(SPAWN_INTERVAL)
       spwnTmr -= SPAWN_INTERVAL
 
     if (cleanupTmr >= MAX_LIFE/1000):
-      cleanupPtPool()
+      pts.cleanupPtPool()
       cleanupTmr = 0
     
-    checkColls()
+    pts.checkColls()
     glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
     gpuInitT = getTime()
-    renderPts()
+    pts.render()
 
     window.swapBufs()
     gpuEndT = getTime()

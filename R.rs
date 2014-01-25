@@ -2,9 +2,10 @@
 
 extern mod glfw;
 extern mod gl;
+extern mod native;
 
 use gl::types::*;
-use std::sys::*;
+use std::mem::*;
 use std::cast;
 use std::ptr;
 use std::num::abs;
@@ -13,8 +14,8 @@ use std::num::sqrt;
 
 static PrintFrames : bool = true;
 static Title: &'static str  = "ParticleBench";
-static Width : uint  = 800;
-static Height : uint = 600;
+static Width : u32  = 800;
+static Height : u32 = 600;
 
 static MaxPts : u32       = RunningTime * PointsPerSec;
 static MaxInitVel : u32   = 7;
@@ -40,7 +41,7 @@ static WindChangef : f64 = 2000.0;
 static WindChangei : u32 = WindChangef as u32;
 static MaxWind : f64 = 3.0;
 static SpawnInterval : f64 = 0.01;
-static RunningTime : u32  = ((MaxLife / 1000) * 5) ;
+static RunningTime : u32  = ((MaxLife / 1000) * 4) ;
 
 static ambient : [GLfloat, ..4] = [0.8, 0.05, 0.1, 1.0];
 static diffuse : [GLfloat, ..4] = [1.0, 1.0, 1.0, 1.0];
@@ -62,7 +63,7 @@ static mut curFrame: u64 = 0;
 static mut windX: f64 = 0.0;
 static mut windY: f64 = 0.0;
 static mut windZ: f64 = 0.0;
-static mut grav:  f64 = 0.5;
+static mut grav:  f64 = 50.0;
 
 
 static emptyPt : Pt = Pt{X:0.0,Y:0.0,Z:0.0,VX:0.0,VY:0.0,VZ:0.0,R:0.0,Life:0.0,is:false};
@@ -121,7 +122,7 @@ fn spwnPts(secs: f64) {
 		let num = (secs * PointsPerSecf) as u32;
 		let mut i: u32 = 0;
 		while i < num{
-			Pts[maxPt] = Pt{X: 0.0 + (rand()%StartRangei) as f64 - StartRangef/2.0, Y: StartY,
+			Pts[maxPt] = Pt{X: StartX + (rand()%StartRangei) as f64 - StartRangef/2.0, Y: StartY,
 				Z: StartDepth + (rand()%StartRangei) as f64 - StartRangef/2.0, VX: (rand() % MaxInitVel) as f64,
 				VY: (rand() % MaxInitVel) as f64, VZ: (rand() % MaxInitVel) as f64,
 				R: (rand()%(MaxScale*100)) as f64 / 200.0, Life: (rand()%MaxLife) as f64 / 1000.0, is: true};
@@ -144,7 +145,7 @@ fn movPts(secs: f64) {
 			Pts[i].Z += Pts[i].VZ * secs;
 			Pts[i].VX += windX * 1.0 / Pts[i].R; // The effect of the wind on a particle is inversely proportional to its radius
 			Pts[i].VY += windY * 1.0 / Pts[i].R;
-			Pts[i].VY -= grav;
+			Pts[i].VY -= grav * secs;
 			Pts[i].VZ += windZ * 1.0 / Pts[i].R;
 			Pts[i].Life -= secs;
 			if Pts[i].Life <= 0.0 {
@@ -224,8 +225,7 @@ fn cleanupPtPool() {
 
 #[start]
 fn start(argc: int, argv: **u8) -> int {
-    // Run GLFW on the main thread
-    std::rt::start_on_main_thread(argc, argv, main)
+    native::start(argc, argv, main)
 }
 
 fn loadCubeToGPU() {
@@ -270,37 +270,40 @@ fn loadCubeToGPU() {
 		gl::GenBuffers(1, gVBOp);
 		gl::BindBuffer(gl::ARRAY_BUFFER, gVBO);
 		gl::BufferData(gl::ARRAY_BUFFER, (size_of_val(&emptyVert)*24) as GLsizeiptr,cast::transmute(&Vertices[0]), gl::STATIC_DRAW);
+
+		gl::EnableClientState(gl::VERTEX_ARRAY);
+		gl::EnableClientState(gl::NORMAL_ARRAY);
+		gl::VertexPointer(3, gl::FLOAT, 24, ptr::null());
+		gl::NormalPointer(gl::FLOAT, 24, ptr::null());
 	}
 
-	gl::EnableClientState(gl::VERTEX_ARRAY);
-	gl::EnableClientState(gl::NORMAL_ARRAY);
-	gl::VertexPointer(3, gl::FLOAT, 24, ptr::null());
-	gl::NormalPointer(gl::FLOAT, 24, ptr::null());
 }
 
 fn initScene() {
-	gl::Enable(gl::DEPTH_TEST);
-	gl::Enable(gl::LIGHTING);
+	unsafe{
+		gl::Enable(gl::DEPTH_TEST);
+		gl::Enable(gl::LIGHTING);
 
-	gl::ClearColor(0.1, 0.1, 0.6, 1.0);
-	gl::ClearDepth(1.0);
-	gl::DepthFunc(gl::LEQUAL);
+		gl::ClearColor(0.1, 0.1, 0.6, 1.0);
+		gl::ClearDepth(1.0);
+		gl::DepthFunc(gl::LEQUAL);
 
-	gl::Lightfv(gl::LIGHT0, gl::AMBIENT, &ambient[0]);
-	gl::Lightfv(gl::LIGHT0, gl::DIFFUSE, &diffuse[0]);
-	gl::Lightfv(gl::LIGHT0, gl::POSITION, &lightPos[0]);
-	gl::Enable(gl::LIGHT0);
+		gl::Lightfv(gl::LIGHT0, gl::AMBIENT, &ambient[0]);
+		gl::Lightfv(gl::LIGHT0, gl::DIFFUSE, &diffuse[0]);
+		gl::Lightfv(gl::LIGHT0, gl::POSITION, &lightPos[0]);
+		gl::Enable(gl::LIGHT0);
 
-	gl::Viewport(0, 0, Width as i32, Height as i32);
-	gl::MatrixMode(gl::PROJECTION);
-	gl::LoadIdentity();
-	gl::Frustum(-1.0, 1.0, -1.0, 1.0, 1.0, 1000.0);
-	gl::Rotatef(20.0, 1.0, 0.0, 0.0);
-	gl::MatrixMode(gl::MODELVIEW);
-	gl::LoadIdentity();
-	gl::PushMatrix();
+		gl::Viewport(0, 0, Width as i32, Height as i32);
+		gl::MatrixMode(gl::PROJECTION);
+		gl::LoadIdentity();
+		gl::Frustum(-1.0, 1.0, -1.0, 1.0, 1.0, 1000.0);
+		gl::Rotatef(20.0, 1.0, 0.0, 0.0);
+		gl::MatrixMode(gl::MODELVIEW);
+		gl::LoadIdentity();
+		gl::PushMatrix();
 
-	return
+		return
+	}
 }
 
 fn renderPts() {
@@ -324,10 +327,6 @@ fn renderPts() {
 }
 
 fn main() {
-    do glfw::set_error_callback |_, description| {
-        format!("GLFW Error: {}", description);
-    }
-
     do glfw::start {
 	glfw::window_hint::context_version(2, 1);
 	//glfw::window_hint::samples(2);

@@ -79,7 +79,6 @@ proc move(pts: var TPts, secs, gravity: float64) =
     if not pts[i].bis:
       continue
     for c in TCoord:
-      {.unroll: 3.}
       pts[i].p[c] += pts[i].v[c] * secs
       pts[i].v[c] += wind[c] * 1 / pts[i].r  # The effect of the wind on a particle is 
     pts[i].v[y] -= gravity                           # inversely proportional to its radius.
@@ -115,7 +114,6 @@ proc checkColls(pts: var TPts) =
     if not pts[i].bis:
       continue
     for c in TCoord:
-      {.unroll: 3.}
       if pts[i].p[c] < Min[c]:
         pts[i].p[c] = Min[c] + pts[i].r
         pts[i].v[c] *= -1.1  # These particles are magic; 

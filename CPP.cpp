@@ -38,7 +38,7 @@ constexpr int32_t MAX_SCALE = 4;
 constexpr int32_t WIND_CHANGE = 2000;
 constexpr int32_t MAX_WIND = 3;
 constexpr double SPAWN_INTERVAL = 0.01;
-constexpr int32_t RUNNING_TIME = ((MAX_LIFE / 1000) * 5);
+constexpr int32_t RUNNING_TIME = ((MAX_LIFE / 1000) * 4);
 constexpr int32_t MAX_PTS = (RUNNING_TIME * POINTS_PER_SEC);
 
 constexpr uint32_t NUM_VERTICES = 24;
@@ -49,7 +49,7 @@ constexpr uint32_t RAND_SEED = 1234569;
 constexpr double WINDX = 0; 
 constexpr double WINDY = 0;
 constexpr double WINDZ = 0;
-constexpr double GRAV = 0.5;
+constexpr double GRAV = 50;
 
 struct Pt {
   double X, Y, Z, VX, VY, VZ, R, Life; 
@@ -132,7 +132,7 @@ public:
       p.Z += p.VZ * secs;
       p.VX += windX_ * 1 / p.R;
       p.VY += windY_ * 1 / p.R;
-      p.VY -= GRAV;
+      p.VY -= GRAV * secs;
       p.VZ += windZ_ * 1 / p.R;
       p.Life -= secs;
       if (p.Life <= 0 ) {

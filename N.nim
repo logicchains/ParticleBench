@@ -51,12 +51,12 @@ var
   gravity = 0.5'f64
   gVBO: GLuint = 0
    
-type TPts = object
+type PPts = ref object
   low, high: int            # The index range in the pool that currently contains a particle
   pool: array[MaxPts, TPt]  # The pool of particles
   
-proc `[]`(pts: var Tpts, key: int): var TPt = pts.pool[key]
-proc `[]=`(pts: var Tpts, key: int, val: TPt) = pts.pool[key] = val
+proc `[]`(pts: var PPts, key: int): var TPt = pts.pool[key]
+proc `[]=`(pts: var PPts, key: int, val: TPt) = pts.pool[key] = val
 
 proc toGlVec(a: Array[3, int]) : array[TCoord, GLfloat] = 
   return [GlFloat(a[x.ord]), GlFloat(a[y.ord]), GlFloat(a[z.ord])]
@@ -74,7 +74,7 @@ proc xorRand: uint32 =
   seed = seed xor (seed shl 5)
   return seed
 
-proc move(pts: var TPts, secs, gravity: float64) =
+proc move(pts: var PPts, secs, gravity: float64) =
   for i in pts.low .. pts.high:
     if not pts[i].bis:
       continue
@@ -87,7 +87,7 @@ proc move(pts: var TPts, secs, gravity: float64) =
     if pts[i].life <= 0:
       pts[i].bis = false
       
-proc spawn(pts: var TPts, secs: float64) =
+proc spawn(pts: var PPts, secs: float64) =
   let num = secs * PointsPerSec
   for i in 0 .. <num.int:
     pts[pts.high] = TPt(
@@ -109,7 +109,7 @@ proc doWind(secs: float64) =
     if abs(wind[c]) > MAX_WIND:
       wind[c] *= -0.5
 
-proc checkColls(pts: var TPts) =
+proc checkColls(pts: var PPts) =
   for i in pts.low .. pts.high:
     if not pts[i].bis:
       continue
@@ -122,7 +122,7 @@ proc checkColls(pts: var TPts) =
         pts[i].p[c] = Max[c] - pts[i].r
         pts[i].v[c] *= -1.1
 
-proc cleanupPtPool(pts: var TPts) =  # Move pts.low forward to the first index in   
+proc cleanupPtPool(pts: var PPts) =  # Move pts.low forward to the first index in   
   for i in pts.low .. pts.high:  # the point array that contains a valid point
     if Pts[i].bis:
       pts.low = i  # After 2*LifeTime, the pts.low should be at around (LifeTime in seconds)*PointsPerSec
@@ -177,7 +177,7 @@ proc cleanupBuffers =
   glDisableClientState( GL_NORMAL_ARRAY )
   glDisableClientState( GL_VERTEX_ARRAY )
 
-proc render(pts: var TPts) =
+proc render(pts: var PPts) =
   for i in pts.low .. pts.high:
     if (Pts[i].bis == false):
       continue
@@ -204,7 +204,7 @@ proc main =
     cleanupTmr = 0.0         # Timer for cleaning up the particle array
     runTmr = 0.0             # Timer of total running time
     
-    pts = TPts(low: 0, high: 0)
+    pts = PPts(low: 0, high: 0)
     frames: array[RunningTime * 1000, float64]    # Length of each frame
     gpuTimes: array[RunningTime * 1000, float64]  # Cpu time spent before swapping buffers for each frame
     curFrame = 0                                  # The current number of frames that have elapsed

@@ -28,7 +28,7 @@
 (define *WIND_CHANGE* 2.0)
 (define *MAX_WIND* 3.0)
 (define *SPAWN_INTERVAL* 0.01 )
-(define *RUNNING_TIME* (* *MAX_LIFE* 5))
+(define *RUNNING_TIME* (* *MAX_LIFE* 4))
 (define *MAX_PTS* (* *RUNNING_TIME* *POINTS_PER_SEC*))
 
 (define init-t 0.0)
@@ -46,7 +46,7 @@
 (define windX 0.0) 
 (define windY 0.0)
 (define windZ 0.0)
-(define grav 0.5)
+(define grav 50)
 
 (define sdl-window #f)
 (define sdl-renderer #f)
@@ -129,7 +129,7 @@
                                       ( set-pt-vx! apt (+ (pt-vx apt) (* (/ 1 (pt-R apt)) windX)))
                                       ( set-pt-vy! apt (+ (pt-vy apt) (* (/ 1 (pt-R apt)) windY)))
                                       ( set-pt-vz! apt (+ (pt-vz apt) (* (/ 1 (pt-R apt)) windZ)))
-                                      ( set-pt-vy! apt (- (pt-vy apt) grav) )
+                                      ( set-pt-vy! apt (- (pt-vy apt) (* grav secs)) )
                                       ( set-pt-life! apt (- (pt-life apt) secs) )
                                       ( if (> 0.0 (pt-life apt) ) (set-pt-is! apt 0) #f )
                                       )

@@ -1,7 +1,7 @@
 /*	Reads data from BenchmarkData.dat (four rows per language, first is name, second is compile command or "-" if interpreted, third is run command, fourth is source file name).
 	If flag -c=true is set, compiles the languages read from that file and records their compile time.
 	Runs them, recording their resident memory usage.
-	Waits WaitTime between each run.
+	Waits WaitTime seconds between each run.
 	Outputs their framerate data to FrameFile, runs Frames2PPM.go and saves the output to LangName.ppm
 	Outputs their framerate, memory usage and compile time to stdout.
 	Compresses their source files and records their size.
@@ -26,7 +26,7 @@ import (
 const (
 	langFile  = "BenchmarkData.dat"
 	FrameFile = "Frames.dat"
-	WaitTime = 2 
+	WaitTime = 90 
 )
 
 var (
@@ -72,6 +72,7 @@ func compileLangs() {
 		if lang.Interpreted == true {
 			continue
 		}
+		fmt.Printf("Now compiling language %v.\n", lang.Name)
 		initT := time.Now()
 		_, err := runCommand(lang.Commands)
 		if err != nil {
@@ -89,7 +90,9 @@ func runLangs() {
 		if lang.Loaded == false {
 			continue
 		}
-		time.Sleep(WaitTime * time.Minute)
+		fmt.Println("Pausing to allow the system to cool down.")
+		time.Sleep(WaitTime * time.Second)
+		fmt.Printf("Now running language %v.\n", lang.Name)
 		out, err := runCommand(`command time -f 'max resident:\t%M KiB' ` + lang.Run)
 		if err != nil {
 			fmt.Printf("Running %v failed with error of %v", lang.Name, err)
@@ -100,6 +103,7 @@ func runLangs() {
 }
 
 func graphLangs() {
+	fmt.Println("Now graphing framerate results.")
 	for _, lang := range langs {
 		if lang.Loaded == false {
 			continue
@@ -107,7 +111,6 @@ func graphLangs() {
 		if strings.Index(lang.Results, "--:") < 0 || strings.Index(lang.Results, ".--") < 0 {
 			fmt.Printf("Could not read frame data for language %v.\n", lang.Name)
 			continue
-
 		}
 		frames := strings.TrimSpace(lang.Results[strings.Index(lang.Results, "--:")+3 : strings.Index(lang.Results, ".--")-1])
 		err := ioutil.WriteFile(FrameFile, []byte(frames), 0644)
@@ -170,6 +173,7 @@ func printLangs() {
 }
 
 func measureLangSizes(){
+	fmt.Println("Now measuring compressed source file sizes.")
 	for i, lang := range langs {
 		if lang.Loaded == false {
 			continue
@@ -191,6 +195,7 @@ func measureLangSizes(){
 }
 
 func calcLangStats(){
+	fmt.Println("Now calculating summary statistics")
 	maxFps := 0.0
 	minCpuTime := 100.0	
 	for _, lang := range langs {

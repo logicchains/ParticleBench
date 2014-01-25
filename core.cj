@@ -31,7 +31,7 @@
 (def ^:const ^Float WIND_CHANGE 2.0)
 (def ^:const ^Float MAX_WIND 3.0)
 (def ^:const ^Float SPAWN_INTERVAL 0.01 )
-(def ^:const ^Float RUNNING_TIME (* MAX_LIFE 5) )
+(def ^:const ^Float RUNNING_TIME (* MAX_LIFE 4) )
 (def ^:const  MAX_PTS (* RUNNING_TIME POINTS_PER_SEC))
 
 (def ^Float init-t 0.0)

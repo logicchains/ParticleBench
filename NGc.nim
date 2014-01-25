@@ -6,8 +6,8 @@ type
   TCoord = enum
     x, y, z
 
-  TPt = object                       # A particle object:
-    p, v : array[TCoord, float64]  # The position and velocity. 
+  TPt = ref object                   # A particle object:
+    p, v : array[TCoord, float64]    # The position and velocity. 
     r, life: float64                 # Radius and remaining lifetime
     bis: bool                        # Living or not
 
@@ -40,9 +40,15 @@ const
   SpawnInterval = 0.01                  # How often particles are spawned, in seconds
   NumVertices = 24
 
-type PPts = ref object
-  low, high: int            # The index range in the pool that currently contains a particle
-  pool: array[MaxPts, TPt]  # The pool of particles
+type
+  PPts = ref object
+    low, high: int            # The index range in the pool that currently contains a particle
+    pool: array[MaxPts, TPt]  # The pool of particles
+
+proc initPts(): PPts =
+  result = PPts(low: 0, high: 0)
+  for i in 0 .. <MaxPts:
+    new(result.pool[i])
 
 var
   ambient = [Glfloat(0.8), 0.05, 0.1, 1.0]
@@ -54,12 +60,10 @@ var
   wind: array[TCoord, float64] = [0.0, 0.0, 0.0]  # Wind speed. 
   gravity = 0.5'f64
   gVBO: GLuint = 0
-  pts = PPts(low: 0, high: 0)
   frames: array[RunningTime * 1000, float64]    # Length of each frame
   gpuTimes: array[RunningTime * 1000, float64]  # Cpu time spent before swapping buffers for each frame
+  pts = initPts()
 
-
-  
 proc `[]`(pts: var PPts, key: int): var TPt = pts.pool[key]
 proc `[]=`(pts: var PPts, key: int, val: TPt) = pts.pool[key] = val
 
@@ -196,7 +200,8 @@ proc render(pts: var PPts) =
     glColor4f(0.7, 0.9, 0.2, 1)
     glDrawArrays(GL_QUADS, 0, NUM_VERTICES)
 
-proc main = 
+proc main =
+  GC_disable()
   init()
   var 
     window = newWnd((Width.positive, Height.positive), Title,
@@ -252,7 +257,8 @@ proc main =
     
     if (runTmr >= RUNNING_TIME):  # Animation complete 
       break
-      
+    
+    GC_step(1000)
   var sum = 0'f64
   for i in 0 .. <curFrame:
     sum += frames[i]

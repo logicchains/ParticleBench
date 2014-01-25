@@ -5,7 +5,7 @@ author        = "Dominik Picheta"
 description   = "ParticleBenchmark"
 license       = "GPLv2"
 
-bin = "N"
+bin = "N, NGc"
 
 [Deps]
 Requires: "nimrod >= 0.9.2, opengl, nim-glfw, x11"

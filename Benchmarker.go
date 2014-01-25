@@ -1,6 +1,7 @@
 /*	Reads data from BenchmarkData.dat (four rows per language, first is name, second is compile command or "-" if interpreted, third is run command, fourth is source file name).
 	If flag -c=true is set, compiles the languages read from that file and records their compile time.
 	Runs them, recording their resident memory usage.
+	Waits WaitTime between each run.
 	Outputs their framerate data to FrameFile, runs Frames2PPM.go and saves the output to LangName.ppm
 	Outputs their framerate, memory usage and compile time to stdout.
 	Compresses their source files and records their size.
@@ -25,6 +26,7 @@ import (
 const (
 	langFile  = "BenchmarkData.dat"
 	FrameFile = "Frames.dat"
+	WaitTime = 2 
 )
 
 var (
@@ -87,6 +89,7 @@ func runLangs() {
 		if lang.Loaded == false {
 			continue
 		}
+		time.Sleep(WaitTime * time.Minute)
 		out, err := runCommand(`command time -f 'max resident:\t%M KiB' ` + lang.Run)
 		if err != nil {
 			fmt.Printf("Running %v failed with error of %v", lang.Name, err)
@@ -135,11 +138,11 @@ func printLangs() {
 		var fps string
 		var cpuTime string
 		var memUse string
-		if strings.Index(lang.Results, ":") < 0 || strings.Index(lang.Results, " frames") < 0 {
+		if strings.Index(lang.Results, "framerate was:") < 0 || strings.Index(lang.Results, " frames") < 0 {
 			fmt.Printf("Failed to read framerate results for language %v\n", lang.Name)
 			fps = "N/A"
 		}else {
-			fps = strings.TrimSpace(lang.Results[strings.Index(lang.Results, ":")+1 : strings.Index(lang.Results, " frames")])
+			fps = strings.TrimSpace(lang.Results[strings.Index(lang.Results, "framerate was:")+14 : strings.Index(lang.Results, " frames")])
 			langs[i].FPS, _ = strconv.ParseFloat(fps, 32) 
 		}
 		if strings.Index(lang.Results, "was-") < 0 || strings.Index(lang.Results, " seconds") < 0 {
@@ -171,7 +174,6 @@ func measureLangSizes(){
 		if lang.Loaded == false {
 			continue
 		}
-		_,_ = runCommand("rm " + lang.Filename +".bz2")
 		runCommand("bzip2 -k " + lang.Filename)
 		size, err := runCommand("du -b " + lang.Filename + ".bz2")
 		if err != nil{
@@ -184,6 +186,7 @@ func measureLangSizes(){
 			continue
 		}
 		langs[i].CompSize = intSize
+		_,_ = runCommand("rm " + lang.Filename +".bz2")
 	}
 }
 
@@ -194,10 +197,10 @@ func calcLangStats(){
 		if lang.Loaded == false {
 			continue
 		}
-		if lang.CpuTime < minCpuTime{
+		if lang.CpuTime < minCpuTime && lang.CpuTime > 0.0001{
 			minCpuTime = lang.CpuTime
 		}
-		if lang.FPS < maxFps{
+		if lang.FPS > maxFps && lang.CpuTime < 1000{
 			maxFps = lang.FPS
 		}
 	}
@@ -216,11 +219,11 @@ func putResultsInHtmlTable() {
 		<tr>
 		<td style="text-align: center;" width="81" height="17"><span style="color: #000000;"><em>{{.Name}}</em></span></td>
 		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{.Compiler}}</em></span></td>
-		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{.CmplTime}}</em></span></td>
-		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{.FPS}}</em></span></td>
-		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{.PcntMaxFps}}</em></span></td>
-		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{.CpuTime}}</em></span></td>
-		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{.PcntMinCpu}}</em></span></td>
+		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{printf "%.4f" .CmplTime}}</em></span></td>
+		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{printf "%.2f" .FPS}}</em></span></td>
+		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{printf "%.2f" .PcntMaxFps}}</em></span></td>
+		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{printf "%.5f" .CpuTime}}</em></span></td>
+		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{printf "%.2f" .PcntMinCpu}}</em></span></td>
 		<td style="text-align: center;" width="70"><span style="color: #000000;"><em>{{.MemUse}}</em></span></td>
 		<td style="text-align: center;" width="70"><span style="color: #000000;"><em>{{.CompSize}}</em></span></td>
 		</tr>
@@ -241,7 +244,7 @@ func putResultsInHtmlTable() {
 			<td style="text-align: center;" width="81"><span style="color: #000000;"><em>CPU time</em></span></td>
 			<td style="text-align: center;" width="81"><span style="color: #000000;"><em>% Fastest</em></span></td>
 			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Resident mem use (KiB)</em></span></td>
-			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Compressed sources size</em></span></td>
+			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Compressed source size</em></span></td>
 			</tr>
 	`
 
@@ -275,7 +278,7 @@ func runCommand(command string) (string, error){
 	}
 	cmdOutput, err2 := exec.Command("sh", "command.sh").CombinedOutput()
 	if err2 != nil {
-		fmt.Printf("Failed to exec command %v, failing with error %v\n", command, err2)
+		fmt.Printf("Failed to exec command %v, failing with error %v: %v\n", command, err2, string(cmdOutput))
 		return "", err2
 	}
 	return string(cmdOutput), nil

@@ -29,7 +29,7 @@ enum {
 
 	WIND_CHANGE = 2000,
 	MAX_WIND = 3,
-	RUNNING_TIME = ((MAX_LIFE / 1000) * 5),
+	RUNNING_TIME = ((MAX_LIFE / 1000) * 4),
 	MAX_PTS = (RUNNING_TIME * POINTS_PER_SEC)
 }
 
@@ -43,7 +43,7 @@ double
 	windX = 0, 
 	windY = 0,
 	windZ = 0,
-	grav = 0.5,
+	grav = 50,
 
 	initT = 0,
 	endT = 0,
@@ -170,7 +170,7 @@ void movPts(double secs) {
 		Pts[i].Z += Pts[i].VZ * secs;
 		Pts[i].VX += windX * 1 / Pts[i].R;
 		Pts[i].VY += windY * 1 / Pts[i].R;
-		Pts[i].VY -= grav;
+		Pts[i].VY -= grav * secs;
 		Pts[i].VZ += windZ * 1 / Pts[i].R;
 		Pts[i].Life -= secs;
 		if (Pts[i].Life <= 0) {

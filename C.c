@@ -32,7 +32,7 @@
 #define WIND_CHANGE 2000
 #define MAX_WIND 3
 #define SPAWN_INTERVAL 0.01 
-#define RUNNING_TIME ((MAX_LIFE / 1000) * 5)
+#define RUNNING_TIME ((MAX_LIFE / 1000) * 4)
 #define MAX_PTS (RUNNING_TIME * POINTS_PER_SEC)
 
 #define NUM_VERTICES 24
@@ -93,7 +93,7 @@ GLuint gVBO = 0;
 double windX = 0; 
 double windY = 0;
 double windZ = 0;
-double grav = 0.5;
+double grav = 50.0;
 
 float ambient[4] = {0.8, 0.05, 0.1, 1};
 float diffuse[4] = {1.0, 1.0, 1.0, 1};
@@ -116,7 +116,7 @@ void movPts(double secs) {
 		Pts[i].Z += Pts[i].VZ * secs;
 		Pts[i].VX += windX * 1 / Pts[i].R;
 		Pts[i].VY += windY * 1 / Pts[i].R;
-		Pts[i].VY -= grav;
+		Pts[i].VY -= grav * secs;
 		Pts[i].VZ += windZ * 1 / Pts[i].R;
 		Pts[i].Life -= secs;
 		if (Pts[i].Life <= 0) {

@@ -38,7 +38,7 @@ constexpr int32_t MAX_SCALE = 4;
 constexpr int32_t WIND_CHANGE = 2000;
 constexpr int32_t MAX_WIND = 3;
 constexpr double SPAWN_INTERVAL = 0.01;
-constexpr int32_t RUNNING_TIME = ((MAX_LIFE / 1000) * 5);
+constexpr int32_t RUNNING_TIME = ((MAX_LIFE / 1000) * 4);
 constexpr int32_t MAX_PTS = (RUNNING_TIME * POINTS_PER_SEC);
 
 constexpr uint32_t NUM_VERTICES = 24;
@@ -49,7 +49,7 @@ constexpr uint32_t RAND_SEED = 1234569;
 constexpr double WINDX = 0; 
 constexpr double WINDY = 0;
 constexpr double WINDZ = 0;
-constexpr double GRAV = 0.5;
+constexpr double GRAV = 50;
 
 struct Pt {
   double X, Y, Z, VX, VY, VZ, R, Life; 
@@ -132,7 +132,7 @@ public:
       p.Z += p.VZ * secs;
       p.VX += windX_ * 1 / p.R;
       p.VY += windY_ * 1 / p.R;
-      p.VY -= GRAV;
+      p.VY -= GRAV * secs;
       p.VZ += windZ_ * 1 / p.R;
       p.Life -= secs;
       if (p.Life <= 0 ) {
@@ -309,7 +309,7 @@ public:
     glDeleteBuffers( 1, &gVBO_ );
   }
 
-  void doTimestep( const double frameDuration ) {
+  void doTimestep( const double frameDuration, double *gpuInitT ) {
     particles_.moveParticles( frameDuration );
     particles_.doWind( frameDuration, randValue_ );
     if( spwnTmr_ >= SPAWN_INTERVAL ) {
@@ -321,6 +321,7 @@ public:
       cleanupTmr_ = 0;
     }
     particles_.checkForCollisions();
+    *gpuInitT = glfwGetTime();
     particles_.renderParticles();
   }
 
@@ -336,6 +337,7 @@ void error_callback(int error, const char* description) {
 
 int main(int argc, char* argv[]) {
   vector<double> frames( (RUNNING_TIME * 1000), 0.0 );
+  vector<double> gpuTimes( (RUNNING_TIME * 1000), 0.0 );
   uint64_t curFrame( 0 );
   glfwSetErrorCallback(error_callback);
   if( !glfwInit() ) {
@@ -366,11 +368,12 @@ int main(int argc, char* argv[]) {
   }
   glRenderer.setupBuffers();
 
-  double initT, endT, frameDur, runTmr = 0;
+  double initT, endT, gpuInitT, gpuEndT, frameDur, runTmr = 0;
   while (!glfwWindowShouldClose(window)) {
     initT = glfwGetTime();
-    glRenderer.doTimestep( frameDur );
+    glRenderer.doTimestep( frameDur, &gpuInitT );
     glfwSwapBuffers(window);
+    gpuEndT = glfwGetTime();
     glfwPollEvents();
     endT = glfwGetTime();
     frameDur = endT-initT;
@@ -378,6 +381,7 @@ int main(int argc, char* argv[]) {
     runTmr += frameDur;
     if (runTmr > MAX_LIFE/1000) {
       frames[curFrame] = frameDur;
+      gpuTimes[curFrame] = gpuEndT - gpuInitT;
       curFrame += 1;
     }
     if (runTmr >= RUNNING_TIME) {
@@ -386,11 +390,18 @@ int main(int argc, char* argv[]) {
       for (i = 0; i < curFrame; i++) {
 	sum += frames[i];
       }
-      double mean = sum / (double)curFrame;
-      cout << "Average framerate was: " << (1/mean) << " frames per second." << endl;
+      double framerateMean = sum / (double)curFrame;
+      cout << "Average framerate was: " << (1/framerateMean) << " frames per second." << endl;
+      sum = 0;
+      i = 0;
+      for (i = 0; i < curFrame; i++) {
+	sum += gpuTimes[i];
+      }
+      double gpuTimeMean = sum / (double)curFrame;
+      cout << "Average cpu time was- " << (framerateMean - gpuTimeMean) << " seconds per frame." << endl;
       double sumDiffs = 0.0;
       for (i = 0; i < curFrame; i++) {
-	sumDiffs += pow((1/frames[i])-(1/mean), 2);
+	sumDiffs += pow((1/frames[i])-(1/framerateMean), 2);
       }
       double variance = sumDiffs/ (double)curFrame;
       double sd = sqrt(variance);

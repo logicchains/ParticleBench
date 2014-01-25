@@ -77,7 +77,7 @@ public static class Globals{
 	public const int WIND_CHANGE = 2000;
 	public const int MAX_WIND = 3;
 	public const double SPAWN_INTERVAL = 0.01 ;
-	public const int RUNNING_TIME = ((MAX_LIFE / 1000) * 5);
+	public const int RUNNING_TIME = ((MAX_LIFE / 1000) * 4);
 	public const int MAX_PTS = (RUNNING_TIME * POINTS_PER_SEC);
 
 	public static float[] ambient = {0.8f, 0.05f, 0.1f, 1f};
@@ -93,7 +93,7 @@ public static class Globals{
 	public static double windX = 0; 
 	public static double windY = 0;
 	public static double windZ = 0;
-	public static double grav = 0.5;
+	public static double grav = 50;
 
 	public static double initT = 0;
 	public static double endT = 0;
@@ -217,7 +217,7 @@ public static class Globals{
 			Pts[i].Z += Pts[i].VZ * secs;
 			Pts[i].VX += windX * 1 / Pts[i].R;
 			Pts[i].VY += windY * 1 / Pts[i].R;
-			Pts[i].VY -= grav;
+			Pts[i].VY -= grav * secs;
 			Pts[i].VZ += windZ * 1 / Pts[i].R;
 			Pts[i].Life -= secs;
 			if (Pts[i].Life <= 0) {

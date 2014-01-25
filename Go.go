@@ -38,7 +38,7 @@ const (
 	WindChange    = 2000                 // The maximum change in windspeed per second, in milliseconds
 	MaxWind       = 3                    // Maximum windspeed in seconds before wind is reversed at half speed
 	SpawnInterval = 0.01                 // How often particles are spawned, in seconds
-	RunningTime   = (MaxLife / 1000) * 5 // The total running time of the animation, in ms
+	RunningTime   = (MaxLife / 1000) * 4 // The total running time of the animation, in ms
 )
 
 var (
@@ -67,7 +67,7 @@ var (
 	windX float64 = 0 // Windspeed
 	windY float64 = 0
 	windZ float64 = 0
-	grav  float64 = 0.5
+	grav  float64 = 50
 
 	gVBO       gl.Uint
 	Vertices   [24]Vertex
@@ -134,7 +134,7 @@ func movPts(secs float64) {
 		Pts[i].Z += Pts[i].VZ * secs
 		Pts[i].VX += windX * 1 / Pts[i].R // The effect of the wind on a particle is inversely proportional to its radius
 		Pts[i].VY += windY * 1 / Pts[i].R
-		Pts[i].VY -= grav
+		Pts[i].VY -= grav * secs
 		Pts[i].VZ += windZ * 1 / Pts[i].R
 		Pts[i].Life -= secs
 		if Pts[i].Life <= 0 {

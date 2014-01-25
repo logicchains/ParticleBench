@@ -37,4 +37,4 @@ Lisp.lisp
 Clojure
 -
 lein run
-core.cj
+core.clj

@@ -32,8 +32,9 @@ racket Rkt.rkt
 Rkt.rkt
 Common Lisp
 -
-sbcl --load Lisp.lisp --eval "(pb:run)"
+sbcl --load Lisp.lisp --non-interactive --eval "(pb:run)"
 Lisp.lisp
 Clojure
 -
-cd cjpb && lein run
+lein run
+core.cj

@@ -1,8 +1,10 @@
-/*	Reads data from BenchmarkData.dat (three rows per language, first is name, second is compile command or "-" if interpreted, third is run command).
+/*	Reads data from BenchmarkData.dat (four rows per language, first is name, second is compile command or "-" if interpreted, third is run command, fourth is source file name).
 	If flag -c=true is set, compiles the languages read from that file and records their compile time.
-	Runs them.
+	Runs them, recording their resident memory usage.
 	Outputs their framerate data to FrameFile, runs Frames2PPM.go and saves the output to LangName.ppm
-	Outputs their framerate and compile time to stdout.
+	Outputs their framerate, memory usage and compile time to stdout.
+	Compresses their source files and records their size.
+	Outputs all the above data to an HTML table in ResultsTable.html
 */
 
 package main
@@ -34,6 +36,7 @@ type Lang struct {
 	Name        string
 	Commands    string
 	Run         string
+	Filename    string
 	CmplTime    float64
 	Results     string
 	Loaded      bool
@@ -44,6 +47,7 @@ type Lang struct {
 	PcntMinCpu  float64
 	Compiler    string
 	MemUse	    int64
+	CompSize    int64
 }
 
 func loadLangs() {
@@ -55,8 +59,8 @@ func loadLangs() {
 	for i, _ := range dataLines {
 		dataLines[i] = strings.Trim(dataLines[i], "\n\r")
 	}
-	for i := 0; i < len(dataLines)-1; i += 3 {
-		thisLang := Lang{Name: dataLines[i], Commands: dataLines[i+1], Run: dataLines[i+2], Loaded: true, Interpreted: dataLines[i+1] == "-"}
+	for i := 0; i < len(dataLines)-1; i += 4 {
+		thisLang := Lang{Name: dataLines[i], Commands: dataLines[i+1], Run: dataLines[i+2], Filename: dataLines[i+3], Loaded: true, Interpreted: dataLines[i+1] == "-"}
 		langs = append(langs, thisLang)
 	}
 }
@@ -162,6 +166,27 @@ func printLangs() {
 	}
 }
 
+func measureLangSizes(){
+	for i, lang := range langs {
+		if lang.Loaded == false {
+			continue
+		}
+		_,_ = runCommand("rm " + lang.Filename +".bz2")
+		runCommand("bzip2 -k " + lang.Filename)
+		size, err := runCommand("du -b " + lang.Filename + ".bz2")
+		if err != nil{
+			fmt.Printf("Error of: %v when reading compressed source file size for language %v\n", err, lang.Name)
+			continue
+		}
+		intSize, err := strconv.ParseInt(strings.TrimSpace(size[:len(size)-len(lang.Filename + ".bz2")-1]),10,32)
+		if err != nil{
+			fmt.Printf("Error of: %v when parsing compressed source file size to int for language %v\n", err, lang.Name)
+			continue
+		}
+		langs[i].CompSize = intSize
+	}
+}
+
 func calcLangStats(){
 	maxFps := 0.0
 	minCpuTime := 100.0	
@@ -197,6 +222,7 @@ func putResultsInHtmlTable() {
 		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{.CpuTime}}</em></span></td>
 		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{.PcntMinCpu}}</em></span></td>
 		<td style="text-align: center;" width="70"><span style="color: #000000;"><em>{{.MemUse}}</em></span></td>
+		<td style="text-align: center;" width="70"><span style="color: #000000;"><em>{{.CompSize}}</em></span></td>
 		</tr>
 	`)
 	table := `
@@ -214,7 +240,8 @@ func putResultsInHtmlTable() {
 			<td style="text-align: center;" width="81"><span style="color: #000000;"><em>% Fastest</em></span></td>
 			<td style="text-align: center;" width="81"><span style="color: #000000;"><em>CPU time</em></span></td>
 			<td style="text-align: center;" width="81"><span style="color: #000000;"><em>% Fastest</em></span></td>
-			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Resident Mem Use (KiB)</em></span></td>
+			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Resident mem use (KiB)</em></span></td>
+			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Compressed sources size</em></span></td>
 			</tr>
 	`
 
@@ -243,12 +270,12 @@ func runCommand(command string) (string, error){
 	script := "#!/bin/bash\n" + command
 	err := ioutil.WriteFile("command.sh", []byte(script), 0644)
 	if err != nil {
-		fmt.Printf("Failed to write command %v, with error: %v", command, err)
+		fmt.Printf("Failed to write command %v, with error: %v\n", command, err)
 		return "", err
 	}
 	cmdOutput, err2 := exec.Command("sh", "command.sh").CombinedOutput()
 	if err2 != nil {
-		fmt.Printf("Failed to exec command %v, failing with error %v", command, err2)
+		fmt.Printf("Failed to exec command %v, failing with error %v\n", command, err2)
 		return "", err2
 	}
 	return string(cmdOutput), nil
@@ -264,6 +291,7 @@ func main() {
 	runLangs()
 	graphLangs()
 	printLangs()
+	measureLangSizes()
 	calcLangStats()
 	putResultsInHtmlTable()
 }

@@ -39,7 +39,7 @@
 (defparameter *WIND_CHANGE* 2.0)
 (defparameter *MAX_WIND* 3.0)
 (defparameter *SPAWN_INTERVAL* 0.01 )
-(defparameter *RUNNING_TIME* (* *MAX_LIFE* 5))
+(defparameter *RUNNING_TIME* (* *MAX_LIFE* 4))
 (defparameter *MAX_PTS* (* *RUNNING_TIME* *POINTS_PER_SEC*))
 
 (defparameter *ambient* #(0.8 0.05 0.1 1.0))
@@ -62,7 +62,7 @@
 (defvar windX 0.0) 
 (defvar windY 0.0)
 (defvar windZ 0.0)
-(defvar grav 0.5)
+(defvar grav 50)
 
 (defvar max-pt 0)      
 (defvar min-pt 0)  
@@ -101,7 +101,7 @@
                                       ( setf (pt-vx (aref pts i)) (+ (pt-vx (aref pts i)) (* (/ 1.0 (pt-R (aref pts i))) windX)))
                                       ( setf (pt-vy (aref pts i)) (+ (pt-vy (aref pts i)) (* (/ 1.0 (pt-R (aref pts i))) windY)))
                                       ( setf (pt-vz (aref pts i)) (+ (pt-vz (aref pts i)) (* (/ 1.0 (pt-R (aref pts i))) windZ)))
-                                      ( setf (pt-vy (aref pts i)) (- (pt-vy (aref pts i)) grav) )
+                                      ( setf (pt-vy (aref pts i)) (- (pt-vy (aref pts i)) (* grav secs)) )
                                       ( setf (pt-life (aref pts i)) (- (pt-life (aref pts i)) secs) )
                                       ( if (> 0.0 (pt-life (aref pts i)) ) (setf (pt-is (aref pts i)) nil) nil )
                                       ) 

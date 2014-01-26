@@ -123,9 +123,9 @@
     (.sx (.gPt pts pos) (+ (.gx apt) (* (.gvx apt) secs)) )
     (.sy (.gPt pts pos) (- (+ (.gy apt) (* (.gvy apt) secs) ) (* grav secs)))
     (.sz (.gPt pts pos) (+ (.gz apt) (* (.gvz apt) secs) ))
-    (.svx (.gPt pts pos) (+ (.gvx apt) (* (/ (float 1.0) (.gR apt)) (:windX env))))
-    (.svy (.gPt pts pos) (+ (.gvy apt) (* (/ (float 1.0) (.gR apt)) (:windY env))))
-    (.svz (.gPt pts pos) (+ (.gvz apt) (* (/ (float 1.0) (.gR apt)) (:windZ env))))
+    (.svx (.gPt pts pos) (+ (.gvx apt) (/ (:windX env) (.gR apt))))
+    (.svy (.gPt pts pos) (+ (.gvy apt) (/ (:windY env) (.gR apt))))
+    (.svz (.gPt pts pos) (+ (.gvz apt) (/ (:windZ env) (.gR apt))))
     (.slife (.gPt pts pos) (- (.glife apt) secs)) 
     (.sis (.gPt pts pos) (< (float 0.0) (.glife apt) ))))))
 

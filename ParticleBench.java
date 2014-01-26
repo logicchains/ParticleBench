@@ -186,10 +186,10 @@ class Globals {
             Pts[i].X += Pts[i].VX * secs;
             Pts[i].Y += Pts[i].VY * secs;
             Pts[i].Z += Pts[i].VZ * secs;
-            Pts[i].VX += windX * 1 / Pts[i].R;
-            Pts[i].VY += windY * 1 / Pts[i].R;
+            Pts[i].VX += windX / Pts[i].R;
+            Pts[i].VY += windY / Pts[i].R;
             Pts[i].VY -= grav * secs;
-            Pts[i].VZ += windZ * 1 / Pts[i].R;
+            Pts[i].VZ += windZ / Pts[i].R;
             Pts[i].Life -= secs;
             if (Pts[i].Life <= 0) {
                 Pts[i].alive = false;

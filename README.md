@@ -1,17 +1,23 @@
 ParticleBench
 =============
 
-OpenGL particle animation benchmark of various languages
+OpenGL particle animation benchmark of various languages.
 
 The benchmark can be run via 'go run Benchmarker.go', which will compile the languages, run them, and output an html table listing their average framerate, cpu time, compile time, and compressed source size, as well as a .ppm framerate graph  for each language.
 
-It reads from BenchmarkData.dat, so delete all the languages from there that you won't be testing and alter the Java classpath if necessary. The format is:
-Language name
-Command to compile (or '-' if language is intepreted)
-Command to run
-Name of source file (for measuring compressed source size)
+It reads from BenchmarkData.dat, so delete all the languages from there that you won't be testing and alter the Java classpath if necessary. Or, don't delete any, and hopefully it will just skip the invalid ones without crashing. The format is:
 
-The compile instructions for individual languages are as follows:  
+Line 1: Language name
+
+Line 2: Command to compile (or '-' if language is intepreted)
+
+Line 3: Command to run
+
+Line 4: Name of source file (for measuring compressed source size)
+
+
+
+The compilation instructions for individual languages are as follows:  
 
 clang C.c -std=c99 -O3 -lGL -lGLU -lglfw3 -lX11 -lXxf86vm -lXrandr -lpthread -lXi -lm -lGLEW (gcc 4.72 doesn't work for me, llvm 3.2 does) 
 

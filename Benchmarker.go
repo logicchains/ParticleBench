@@ -26,7 +26,7 @@ import (
 const (
 	langFile  = "BenchmarkData.dat"
 	FrameFile = "Frames.dat"
-	WaitTime = 90 
+	WaitTime = 1 
 )
 
 var (
@@ -50,6 +50,8 @@ type Lang struct {
 	Compiler    string
 	MemUse	    int64
 	CompSize    int64
+	LOC	    int
+	NumChars    int
 }
 
 func loadLangs() {
@@ -76,7 +78,7 @@ func compileLangs() {
 		initT := time.Now()
 		_, err := runCommand(lang.Commands)
 		if err != nil {
-			fmt.Printf("Compilation of %v failed with error of %v", lang.Name, err)
+			fmt.Printf("Compilation of %v failed with error of %v\n", lang.Name, err)
 			langs[i].Loaded = false
 		}
 		endT := time.Now()
@@ -141,6 +143,7 @@ func printLangs() {
 		var fps string
 		var cpuTime string
 		var memUse string
+		//fmt.Println(lang.Results)
 		if strings.Index(lang.Results, "framerate was:") < 0 || strings.Index(lang.Results, " frames") < 0 {
 			fmt.Printf("Failed to read framerate results for language %v\n", lang.Name)
 			fps = "N/A"
@@ -191,6 +194,15 @@ func measureLangSizes(){
 		}
 		langs[i].CompSize = intSize
 		_,_ = runCommand("rm " + lang.Filename +".bz2")
+
+		sourceBytes, err := ioutil.ReadFile(lang.Filename)
+		if err != nil {
+			fmt.Printf("Error of: %v when reading source file content for language %v\n, unable to count lines and characters", err, lang.Name)
+			continue  
+		}
+		sourceString := string(sourceBytes)
+		langs[i].NumChars = len(sourceString)
+		langs[i].LOC = len(strings.Split(sourceString, "\n"))
 	}
 }
 
@@ -231,6 +243,8 @@ func putResultsInHtmlTable() {
 		<td style="text-align: center;" width="81"><span style="color: #000000;"><em>{{printf "%.2f" .PcntMinCpu}}</em></span></td>
 		<td style="text-align: center;" width="70"><span style="color: #000000;"><em>{{.MemUse}}</em></span></td>
 		<td style="text-align: center;" width="70"><span style="color: #000000;"><em>{{.CompSize}}</em></span></td>
+		<td style="text-align: center;" width="70"><span style="color: #000000;"><em>{{.LOC}}</em></span></td>
+		<td style="text-align: center;" width="70"><span style="color: #000000;"><em>{{.NumChars}}</em></span></td>
 		</tr>
 	`)
 	table := `
@@ -250,6 +264,8 @@ func putResultsInHtmlTable() {
 			<td style="text-align: center;" width="81"><span style="color: #000000;"><em>% Fastest</em></span></td>
 			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Resident mem use (KiB)</em></span></td>
 			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Compressed source size</em></span></td>
+			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Lines of code</em></span></td>
+			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Number of characters</em></span></td>
 			</tr>
 	`
 
@@ -297,7 +313,7 @@ func main() {
 		compileLangs()
 	}
 	runLangs()
-	graphLangs()
+//	graphLangs()
 	printLangs()
 	measureLangSizes()
 	calcLangStats()

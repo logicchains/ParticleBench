@@ -13,7 +13,9 @@ Line 2: Command to compile (or '-' if language is intepreted)
 
 Line 3: Command to run
 
-Line 4: Name of source file (for measuring compressed source size)
+Line 4: Name of source file (for measuring compressed source size and LOC)
+
+Line 5: Name of executable file (for measuring output executable size)
 
 
 

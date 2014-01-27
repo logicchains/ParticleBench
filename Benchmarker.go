@@ -1,5 +1,5 @@
 /*	Reads data from BenchmarkData.dat (four rows per language, first is name, second is compile command or "-" if interpreted, third is run command, fourth is source file name).
-	If flag -c=true is set, compiles the languages read from that file and records their compile time.
+	If flag -c=true is set, compiles the languages read from that file and records their compile time, as well as measuring the size of their output file.
 	Runs them, recording their resident memory usage.
 	Waits WaitTime seconds between each run.
 	Outputs their framerate data to FrameFile, runs Frames2PPM.go and saves the output to LangName.ppm
@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -26,7 +27,7 @@ import (
 const (
 	langFile  = "BenchmarkData.dat"
 	FrameFile = "Frames.dat"
-	WaitTime  = 1
+	WaitTime  = 120
 )
 
 var (
@@ -103,7 +104,10 @@ func runLangs() {
 			langs[i].Loaded = false
 		}
 		langs[i].Results = string(out)
-
+		
+		if lang.Interpreted == true{
+			continue
+		}
 		resultingExecutable, err := ioutil.ReadFile(lang.ExeName)
 		if err != nil {
 			fmt.Printf("Error of: %v when opening executable file for language %v, unable to measure size.\n", err, lang.Name)
@@ -246,6 +250,15 @@ func calcLangStats() {
 	}
 }
 
+type ByFramerate []Lang
+func (s ByFramerate) Len() int           { return len(s) }
+func (s ByFramerate) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s ByFramerate) Less(i, j int) bool { return s[i].FPS > s[j].FPS }
+
+func sortLangs(){
+	sort.Sort(ByFramerate(langs))
+}
+
 func putResultsInHtmlTable() {
 	tmpl, err := template.New("row").Parse(`
 		<tr>
@@ -285,7 +298,7 @@ func putResultsInHtmlTable() {
 			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Executable size (KB)</em></span></td>
 			</tr>
 	`
-
+	sortLangs()
 	for _, lang := range langs {
 		if lang.Loaded == false {
 			continue

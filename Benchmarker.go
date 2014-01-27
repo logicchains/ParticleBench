@@ -38,7 +38,8 @@ type Lang struct {
 	Name        string
 	Commands    string
 	Run         string
-	Filename    string
+	SourceName  string
+	ExeName     string
 	CmplTime    float64
 	Results     string
 	Loaded      bool
@@ -52,6 +53,7 @@ type Lang struct {
 	CompSize    int64
 	LOC	    int
 	NumChars    int
+	ExeSize     int
 }
 
 func loadLangs() {
@@ -63,8 +65,8 @@ func loadLangs() {
 	for i, _ := range dataLines {
 		dataLines[i] = strings.Trim(dataLines[i], "\n\r")
 	}
-	for i := 0; i < len(dataLines)-1; i += 4 {
-		thisLang := Lang{Name: dataLines[i], Commands: dataLines[i+1], Run: dataLines[i+2], Filename: dataLines[i+3], Loaded: true, Interpreted: dataLines[i+1] == "-"}
+	for i := 0; i < len(dataLines)-1; i += 5 {
+		thisLang := Lang{Name: dataLines[i], Commands: dataLines[i+1], Run: dataLines[i+2], SourceName: dataLines[i+3], ExeName: dataLines[i+4], Loaded: true, Interpreted: dataLines[i+1] == "-"}
 		langs = append(langs, thisLang)
 	}
 }
@@ -101,6 +103,13 @@ func runLangs() {
 			langs[i].Loaded = false
 		}
 		langs[i].Results = string(out)
+
+		resultingExecutable, err := ioutil.ReadFile(lang.ExeName)
+		if err != nil {
+			fmt.Printf("Error of: %v when opening executable file for language %v, unable to measure size.\n", err, lang.Name)
+			continue  
+		}
+		langs[i].ExeSize = len(resultingExecutable)/1000
 	}
 }
 
@@ -131,7 +140,6 @@ func graphLangs() {
 			fmt.Printf("Failed to write ppm graph to file for language %v, failing with error %v\n", lang.Name, err)
 			continue
 		}
-
 	}
 }
 
@@ -176,33 +184,40 @@ func printLangs() {
 }
 
 func measureLangSizes(){
-	fmt.Println("Now measuring compressed source file sizes.")
+	fmt.Println("Now measuring compressed source file sizes and source file LOCs.")
 	for i, lang := range langs {
 		if lang.Loaded == false {
 			continue
 		}
-		runCommand("bzip2 -k " + lang.Filename)
-		size, err := runCommand("du -b " + lang.Filename + ".bz2")
+		runCommand("bzip2 -k " + lang.SourceName)
+		size, err := runCommand("du -b " + lang.SourceName + ".bz2")
 		if err != nil{
 			fmt.Printf("Error of: %v when reading compressed source file size for language %v\n", err, lang.Name)
 			continue
 		}
-		intSize, err := strconv.ParseInt(strings.TrimSpace(size[:len(size)-len(lang.Filename + ".bz2")-1]),10,32)
+		intSize, err := strconv.ParseInt(strings.TrimSpace(size[:len(size)-len(lang.SourceName + ".bz2")-1]),10,32)
 		if err != nil{
 			fmt.Printf("Error of: %v when parsing compressed source file size to int for language %v\n", err, lang.Name)
 			continue
 		}
 		langs[i].CompSize = intSize
-		_,_ = runCommand("rm " + lang.Filename +".bz2")
+		_,_ = runCommand("rm " + lang.SourceName +".bz2")
 
-		sourceBytes, err := ioutil.ReadFile(lang.Filename)
+		sourceBytes, err := ioutil.ReadFile(lang.SourceName)
 		if err != nil {
-			fmt.Printf("Error of: %v when reading source file content for language %v\n, unable to count lines and characters", err, lang.Name)
+			fmt.Printf("Error of: %v when reading source file content for language %v, unable to count lines and characters.\n", err, lang.Name)
 			continue  
 		}
 		sourceString := string(sourceBytes)
 		langs[i].NumChars = len(sourceString)
-		langs[i].LOC = len(strings.Split(sourceString, "\n"))
+		sourceLines := (strings.Split(sourceString, "\n"))
+		numEmptyLines := 0
+		for _, ln := range sourceLines{
+			if strings.TrimSpace(ln) == "" {
+				numEmptyLines += 1
+			}
+		}
+		langs[i].LOC = len(sourceLines) - numEmptyLines
 	}
 }
 
@@ -245,6 +260,7 @@ func putResultsInHtmlTable() {
 		<td style="text-align: center;" width="70"><span style="color: #000000;"><em>{{.CompSize}}</em></span></td>
 		<td style="text-align: center;" width="70"><span style="color: #000000;"><em>{{.LOC}}</em></span></td>
 		<td style="text-align: center;" width="70"><span style="color: #000000;"><em>{{.NumChars}}</em></span></td>
+		<td style="text-align: center;" width="70"><span style="color: #000000;"><em>{{.ExeSize}}</em></span></td>
 		</tr>
 	`)
 	table := `
@@ -266,6 +282,7 @@ func putResultsInHtmlTable() {
 			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Compressed source size</em></span></td>
 			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Lines of code</em></span></td>
 			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Number of characters</em></span></td>
+			<td style="text-align: center;" width="70"><span style="color: #000000;"><em>Executable size (KB)</em></span></td>
 			</tr>
 	`
 
@@ -312,7 +329,7 @@ func main() {
 	if cmp == true {
 		compileLangs()
 	}
-	runLangs()
+//	runLangs()
 //	graphLangs()
 	printLangs()
 	measureLangSizes()

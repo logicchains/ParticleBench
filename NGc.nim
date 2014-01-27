@@ -270,7 +270,7 @@ proc main =
   for i in 0 .. <curFrame:
     sum += gpuTimes[i]
   var gpuTimeMean = sum / curFrame.float64
-  echo("Average cpu time was: $1 seconds per frame." %
+  echo("Average cpu time was- $1 seconds per frame." %
        formatFloat(frameTimeMean - gpuTimeMean))
   
   var sumDiffs = 0.0

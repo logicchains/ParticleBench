@@ -38,11 +38,11 @@ Clojure
 -
 lein run
 core.clj
-Nimrod
+Nimrod standard GC
 nimrod c -d:release N
 ./N
 N.nim
-Nimrod with GC
+Nimrod realtime GC
 nimrod c -d:release -d:useRealtimeGc NGc
 ./NGc
 NGc.nim

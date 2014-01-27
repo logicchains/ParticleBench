@@ -11,22 +11,22 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"strconv"
 	"os/exec"
-	"bytes"
+	"strconv"
 	"strings"
-	"time"
 	"text/template"
+	"time"
 	"unicode"
 )
 
 const (
 	langFile  = "BenchmarkData.dat"
 	FrameFile = "Frames.dat"
-	WaitTime = 1 
+	WaitTime  = 1
 )
 
 var (
@@ -44,14 +44,14 @@ type Lang struct {
 	Results     string
 	Loaded      bool
 	Interpreted bool
-	FPS	    float64
+	FPS         float64
 	PcntMaxFps  float64
 	CpuTime     float64
 	PcntMinCpu  float64
 	Compiler    string
-	MemUse	    int64
+	MemUse      int64
 	CompSize    int64
-	LOC	    int
+	LOC         int
 	NumChars    int
 	ExeSize     int
 }
@@ -107,9 +107,9 @@ func runLangs() {
 		resultingExecutable, err := ioutil.ReadFile(lang.ExeName)
 		if err != nil {
 			fmt.Printf("Error of: %v when opening executable file for language %v, unable to measure size.\n", err, lang.Name)
-			continue  
+			continue
 		}
-		langs[i].ExeSize = len(resultingExecutable)/1000
+		langs[i].ExeSize = len(resultingExecutable) / 1000
 	}
 }
 
@@ -155,35 +155,35 @@ func printLangs() {
 		if strings.Index(lang.Results, "framerate was:") < 0 || strings.Index(lang.Results, " frames") < 0 {
 			fmt.Printf("Failed to read framerate results for language %v\n", lang.Name)
 			fps = "N/A"
-		}else {
+		} else {
 			fps = strings.TrimSpace(lang.Results[strings.Index(lang.Results, "framerate was:")+14 : strings.Index(lang.Results, " frames")])
-			langs[i].FPS, _ = strconv.ParseFloat(fps, 32) 
+			langs[i].FPS, _ = strconv.ParseFloat(fps, 32)
 		}
 		if strings.Index(lang.Results, "was-") < 0 || strings.Index(lang.Results, " seconds") < 0 {
 			fmt.Printf("Failed to read cpu time results for language %v\n", lang.Name)
 			cpuTime = "N/A"
-		}else {
+		} else {
 			cpuTime = strings.TrimSpace(lang.Results[strings.Index(lang.Results, "was-")+4 : strings.Index(lang.Results, " seconds")])
-			langs[i].CpuTime, _ = strconv.ParseFloat(cpuTime, 32) 
+			langs[i].CpuTime, _ = strconv.ParseFloat(cpuTime, 32)
 		}
 		if strings.Index(lang.Results, "resident:") < 0 || strings.Index(lang.Results, "KiB") < 0 {
 			fmt.Printf("Failed to read memory usage results for language %v\n", lang.Name)
-			memUse = "N/A"			
-		}else {
+			memUse = "N/A"
+		} else {
 			tmpStr := strings.TrimSpace(lang.Results[strings.Index(lang.Results, "resident:"):])
-			memUse = tmpStr[strings.Index(tmpStr, "resident:") + 9 : strings.Index(tmpStr, "KiB")]
-			memUse = strings.TrimFunc(memUse, func(r rune) bool{return !unicode.IsDigit(r)} )			
+			memUse = tmpStr[strings.Index(tmpStr, "resident:")+9 : strings.Index(tmpStr, "KiB")]
+			memUse = strings.TrimFunc(memUse, func(r rune) bool { return !unicode.IsDigit(r) })
 			var err error
-			langs[i].MemUse, err = strconv.ParseInt(memUse,10,32)
-			if err != nil{
+			langs[i].MemUse, err = strconv.ParseInt(memUse, 10, 32)
+			if err != nil {
 				fmt.Printf("Error parsing memory use to integer for language %v\n", lang.Name)
-			} 
+			}
 		}
 		fmt.Printf("The implementation in language %v compiled in %v seconds and ran with an average framerate of %v frames per second and an average cpu time of %v seconds per frame, using %v KiB of memory.\n", lang.Name, lang.CmplTime, fps, cpuTime, memUse)
 	}
 }
 
-func measureLangSizes(){
+func measureLangSizes() {
 	fmt.Println("Now measuring compressed source file sizes and source file LOCs.")
 	for i, lang := range langs {
 		if lang.Loaded == false {
@@ -191,28 +191,28 @@ func measureLangSizes(){
 		}
 		runCommand("bzip2 -k " + lang.SourceName)
 		size, err := runCommand("du -b " + lang.SourceName + ".bz2")
-		if err != nil{
+		if err != nil {
 			fmt.Printf("Error of: %v when reading compressed source file size for language %v\n", err, lang.Name)
 			continue
 		}
-		intSize, err := strconv.ParseInt(strings.TrimSpace(size[:len(size)-len(lang.SourceName + ".bz2")-1]),10,32)
-		if err != nil{
+		intSize, err := strconv.ParseInt(strings.TrimSpace(size[:len(size)-len(lang.SourceName+".bz2")-1]), 10, 32)
+		if err != nil {
 			fmt.Printf("Error of: %v when parsing compressed source file size to int for language %v\n", err, lang.Name)
 			continue
 		}
 		langs[i].CompSize = intSize
-		_,_ = runCommand("rm " + lang.SourceName +".bz2")
+		_, _ = runCommand("rm " + lang.SourceName + ".bz2")
 
 		sourceBytes, err := ioutil.ReadFile(lang.SourceName)
 		if err != nil {
 			fmt.Printf("Error of: %v when reading source file content for language %v, unable to count lines and characters.\n", err, lang.Name)
-			continue  
+			continue
 		}
 		sourceString := string(sourceBytes)
 		langs[i].NumChars = len(sourceString)
 		sourceLines := (strings.Split(sourceString, "\n"))
 		numEmptyLines := 0
-		for _, ln := range sourceLines{
+		for _, ln := range sourceLines {
 			if strings.TrimSpace(ln) == "" {
 				numEmptyLines += 1
 			}
@@ -221,18 +221,18 @@ func measureLangSizes(){
 	}
 }
 
-func calcLangStats(){
+func calcLangStats() {
 	fmt.Println("Now calculating summary statistics")
 	maxFps := 0.0
-	minCpuTime := 100.0	
+	minCpuTime := 100.0
 	for _, lang := range langs {
 		if lang.Loaded == false {
 			continue
 		}
-		if lang.CpuTime < minCpuTime && lang.CpuTime > 0.0001{
+		if lang.CpuTime < minCpuTime && lang.CpuTime > 0.0001 {
 			minCpuTime = lang.CpuTime
 		}
-		if lang.FPS > maxFps && lang.CpuTime < 1000{
+		if lang.FPS > maxFps && lang.CpuTime < 1000 {
 			maxFps = lang.FPS
 		}
 	}
@@ -240,8 +240,8 @@ func calcLangStats(){
 		if lang.Loaded == false {
 			continue
 		}
-		langs[i].PcntMaxFps = lang.FPS/maxFps
-		langs[i].PcntMinCpu = minCpuTime/lang.CpuTime
+		langs[i].PcntMaxFps = lang.FPS / maxFps
+		langs[i].PcntMinCpu = minCpuTime / lang.CpuTime
 		langs[i].Compiler = strings.Split(lang.Commands, " ")[0]
 	}
 }
@@ -290,9 +290,9 @@ func putResultsInHtmlTable() {
 		if lang.Loaded == false {
 			continue
 		}
-		var execResults bytes.Buffer 
-		err = tmpl.Execute(&execResults, lang)		
-		table += execResults.String() 
+		var execResults bytes.Buffer
+		err = tmpl.Execute(&execResults, lang)
+		table += execResults.String()
 	}
 
 	table = table + `
@@ -307,7 +307,7 @@ func putResultsInHtmlTable() {
 
 var cflag = flag.Bool("c", true, "Whether to compile")
 
-func runCommand(command string) (string, error){
+func runCommand(command string) (string, error) {
 	script := "#!/bin/bash\n" + command
 	err := ioutil.WriteFile("command.sh", []byte(script), 0644)
 	if err != nil {
@@ -329,8 +329,8 @@ func main() {
 	if cmp == true {
 		compileLangs()
 	}
-//	runLangs()
-//	graphLangs()
+	runLangs()
+	graphLangs()
 	printLangs()
 	measureLangSizes()
 	calcLangStats()

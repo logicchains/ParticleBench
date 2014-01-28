@@ -28,8 +28,7 @@ alias
 
   WIND_CHANGE = 2000,
   MAX_WIND = 3,
-  RUNNING_TIME = ((MAX_LIFE / 1000) * 4),
-  MAX_PTS = (RUNNING_TIME * POINTS_PER_SEC);
+  RUNNING_TIME = ((MAX_LIFE / 1000) * 4);
 
 
 alias ambient = vec4f(0.8, 0.05, 0.1, 1);
@@ -91,17 +90,17 @@ bool loadCubeToGPU(){
   
   using mode GL {
     GenBuffers( 1, &gVBO);
-    BindBuffer( GL_ARRAY_BUFFER, gVBO);
-    BufferData( GL_ARRAY_BUFFER, (ubyte[]: Vertices[]).(length, ptr), GL_STATIC_DRAW);
+    ARRAY_BUFFER.BindBuffer gVBO;
+    ARRAY_BUFFER.BufferData((ubyte[]: Vertices[]).(length, ptr), STATIC_DRAW);
 
-    EnableClientState(GL_VERTEX_ARRAY);
-    EnableClientState(GL_NORMAL_ARRAY);
+    VERTEX_ARRAY.EnableClientState;
+    NORMAL_ARRAY.EnableClientState;
     
     auto size = size-of type-of Vertices[0];
     
-    VertexPointer(3, GL_FLOAT, size, null);  
-    NormalPointer(GL_FLOAT, size, void*: 16);
-    MatrixMode(GL_MODELVIEW);
+    VertexPointer (3, FLOAT, size, null);  
+    NormalPointer (FLOAT, size, void*: 16);
+    MatrixMode MODELVIEW;
   }
   return true;
 }

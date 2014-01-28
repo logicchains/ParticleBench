@@ -93,8 +93,8 @@ bool loadCubeToGPU(){
     ARRAY_BUFFER.BindBuffer gVBO;
     ARRAY_BUFFER.BufferData((ubyte[]: Vertices[]).(length, ptr), STATIC_DRAW);
 
-    VERTEX_ARRAY.EnableClientState;
-    NORMAL_ARRAY.EnableClientState;
+    EnableClientState VERTEX_ARRAY;
+    EnableClientState NORMAL_ARRAY;
     
     auto size = size-of type-of Vertices[0];
     

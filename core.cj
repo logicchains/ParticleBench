@@ -78,7 +78,7 @@
   (gPt [this n] (aget pts n))
   (sPt [this n pt] (aset pts n pt)))
 
-(def tst (Particle. (float 0) (float 0) (float 0) (float 0) (float 0) (float 0) (float 0) (float 0) true))
+(def tst (Particle. (double 0) (double 0) (double 0) (double 0) (double 0) (double 0) (double 0) (double 0) true))
 (def aenv (->environ -2 0 -1)) 
 (def tslice (PSlice. (make-array Object MAX_PTS) 0))
 
@@ -117,37 +117,34 @@
    false)
   pts)
 
-(defn mov-pt [^Float secs ^environ env ^Long pos ^PSlice pts]
-  (let [apt (.gPt pts pos)]
+(defn mov-pt [^Float secs ^environ env ^cjpb.core.Particle apt]
     (if (.gis apt) (do
-    (.sx (.gPt pts pos) (+ (.gx apt) (* (.gvx apt) secs)) )
-    (.sy (.gPt pts pos) (- (+ (.gy apt) (* (.gvy apt) secs) ) (* grav secs)))
-    (.sz (.gPt pts pos) (+ (.gz apt) (* (.gvz apt) secs) ))
-    (.svx (.gPt pts pos) (+ (.gvx apt) (/ (:windX env) (.gR apt))))
-    (.svy (.gPt pts pos) (+ (.gvy apt) (/ (:windY env) (.gR apt))))
-    (.svz (.gPt pts pos) (+ (.gvz apt) (/ (:windZ env) (.gR apt))))
-    (.slife (.gPt pts pos) (- (.glife apt) secs)) 
-    (.sis (.gPt pts pos) (< (float 0.0) (.glife apt) ))))))
+    (.sx apt (+ (.gx apt) (* (.gvx apt) secs)) )
+    (.sy apt (- (+ (.gy apt) (* (.gvy apt) secs) ) (* grav secs)))
+    (.sz apt (+ (.gz apt) (* (.gvz apt) secs) ))
+    (.svx apt (+ (.gvx apt) (/ (:windX env) (.gR apt))))
+    (.svy apt (+ (.gvy apt) (/ (:windY env) (.gR apt))))
+    (.svz apt (+ (.gvz apt) (/ (:windZ env) (.gR apt))))
+    (.slife apt (- (.glife apt) secs)) 
+    (.sis apt (< (float 0.0) (.glife apt) )))))
 
 
 (defn mov-pts [^Float secs ^environ env ^PSlice pts]
-  (dotimes [i (- (.gLen pts) 1)] (mov-pt secs env i pts))
+  (dotimes [i (- (.gLen pts) 1)] (mov-pt secs env (.gPt pts i)))
   pts) 
 
-(defn check-coll [^Long pos ^PSlice pts]
-  (let [apt (.gPt pts pos)]
+(defmacro keep-bounded [apt min max pos-getter pos-setter vel-getter vel-setter]
+  `(do (if (< (~pos-getter ~apt ) ~min) (do (~pos-setter ~apt (+ ~min (.gR ~apt))) (~vel-setter ~apt (* (~vel-getter ~apt) (float -1.1)))  ) false)
+    (if (> (~pos-getter ~apt ) ~max) (do (~pos-setter ~apt (- ~max (.gR ~apt))) (~vel-setter ~apt (* (~vel-getter ~apt) (float -1.1)))  ) false)))
+
+(defn check-coll [^cjpb.core.Particle apt]
     (if (.gis apt)
-        (cond 
-            (< (.gx apt ) MIN_X) (do (.sx (.gPt pts pos) (+ MIN_X (.gR apt))) (.svx (.gPt pts pos) (* (.gvx apt) (float -1.1)))  ) 
-            (> (.gx apt ) MAX_X) (do (.sx (.gPt pts pos) (- MAX_X (.gR apt))) (.svx (.gPt pts pos) (* (.gvx apt) (float -1.1)))  )
-            (< (.gy apt ) MIN_Y) (do (.sy (.gPt pts pos) (+ MIN_Y (.gR apt))) (.svy (.gPt pts pos) (* (.gvy apt) (float -1.1)))  ) 
-            (> (.gy apt ) MAX_Y) (do (.sy (.gPt pts pos) (- MAX_Y (.gR apt))) (.svy (.gPt pts pos) (* (.gvy apt) (float -1.1)))  )
-            (< (.gz apt ) MIN_DEPTH) (do (.sz (.gPt pts pos) (+ MIN_DEPTH (.gR apt))) (.svz (.gPt pts pos) (* (.gvz apt) (float -1.1)))  ) 
-            (> (.gz apt ) MAX_DEPTH) (do (.sz (.gPt pts pos) (- MAX_DEPTH (.gR apt))) (.svz (.gPt pts pos) (* (.gvz apt) (float -1.1)))  )
-            ))))
+        (do (keep-bounded apt MIN_X MAX_X .gx .sx .gvx .svx)
+            (keep-bounded apt MIN_Y MAX_Y .gy .sy .gvy .svy) 
+            (keep-bounded apt MIN_DEPTH MAX_DEPTH .gz .sz .gvz .svz))))
 
 (defn check-colls [^PSlice pts]
-  (dotimes [i (- (.gLen pts) 1)] (check-coll i pts) )
+  (dotimes [i (- (.gLen pts) 1)] (check-coll (.gPt pts i)) )
   pts)
 
 (defn render-pts [^PSlice pts]

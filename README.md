@@ -48,3 +48,5 @@ sbcl --load Lisp.lisp --eval "(pb:run)"
 lein run (Clojure, requires leningen)
 
 [babel](https://github.com/nimrod-code/babel) build *(Nimrod)*
+
+[fcc](feephome.no-ip.org/%7Efeep/fccdists/fcc-latest.tar.bz2) Neat.nt && ./Neat

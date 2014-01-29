@@ -227,16 +227,12 @@
 (defn end[]
   (Display/destroy))
 
+(defmacro bind-wind-axis [getter env] `(if (> (math/abs (~getter ~env)) MAX_WIND)
+                                     (* (~getter ~env) (float -0.5))
+                                     (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE (float 2.0)) ) frame-dur) (~getter ~env))))
+
 (defn do-wind [^environ env ^Float frame-dur]
-  (->environ (if (> (math/abs (:windX env)) MAX_WIND)
-               (* (:windX env) (float -0.5))
-               (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE (float 2.0)) ) frame-dur) (:windX env)))
-             (if (> (math/abs (:windY env)) MAX_WIND)
-               (* (:windY env) (float -0.5))
-               (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE (float 2.0)) ) frame-dur) (:windY env)))
-             (if (> (math/abs (:windZ env)) MAX_WIND)
-               (* (:windZ env) (float -0.5))
-               (+ (* (- (* (rand) WIND_CHANGE) (/ WIND_CHANGE (float 2.0)) ) frame-dur) (:windZ env)))))
+  (->environ (bind-wind-axis :windX env) (bind-wind-axis :windZ env) (bind-wind-axis :windZ env)))
 
 (defn set-timer [^Float tmr ^PSlice pts] (def tmr (System/currentTimeMillis)) pts)
 

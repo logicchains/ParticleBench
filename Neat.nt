@@ -1,0 +1,290 @@
+module Neat;
+import std.math, std.fun, std.lib.(opengl, glfw3);
+import c.math;
+
+alias
+  PRINT_FRAMES = true,
+  TITLE = "ParticleBench",
+  WIDTH = 800,
+  HEIGHT = 600,
+
+  MIN_X = -80,
+  MAX_X = 80,
+  MIN_Y = -90,
+  MAX_Y = 50,
+  MIN_DEPTH = 50,
+  MAX_DEPTH = 250,
+
+  START_RANGE = 15,
+  START_X = (MIN_X + (MIN_X + MAX_X) / 2),
+  START_Y = MAX_Y,
+  START_DEPTH = (MIN_DEPTH + (MIN_DEPTH + MAX_DEPTH) / 2),
+
+  POINTS_PER_SEC = 2000,
+  MAX_INIT_VEL = 7,
+  SPAWN_INTERVAL = 0.01,
+  MAX_LIFE = 5000,
+  MAX_SCALE = 4,
+
+  WIND_CHANGE = 2000,
+  MAX_WIND = 3,
+  RUNNING_TIME = ((MAX_LIFE / 1000) * 4);
+
+
+alias ambient = vec4f(0.8, 0.05, 0.1, 1);
+alias diffuse = vec4f(1, 1, 1, 1);
+float[] lightPos;
+void init() { lightPos = [float: MIN_X + (MAX_X - MIN_X) / 2, MAX_Y, MIN_DEPTH, 0].dup; }
+
+GLuint gVBO = 0;
+
+vec3d wind;
+
+double
+  grav = 50,
+  initT = 0,
+  endT = 0,
+  gpuInitT = 0,
+  gpuEndT = 0,
+  frameDur = 0,
+  spwnTmr = 0,
+  cleanupTmr = 0,
+  runTmr = 0;
+
+double[auto~] frames, gpuTimes;
+
+struct Pt {
+  vec3d pos; alias implicit-cast = pos;
+  vec3d motion; double R, Life;
+  bool alive;
+}
+
+Pt[auto~] Pts;
+
+int minPt = 0;
+       
+uint seed = 1234569;
+
+(vec3f pos, vec3f normal)[auto~] Vertices;
+
+bool loadCubeToGPU(){
+  alias vertices = [for i <- 0..8: ([-1,1][i&1 != 0], [-1,1][i&2 != 0], [-1,1][i&4 != 0])];
+  // imagine a cube like so
+  /*    6   7
+      2   3
+        4   5
+      0   1
+  */
+  alias faces = [
+    (( 0, 0, 1), (4, 5, 7, 6)),
+    (( 0, 0,-1), (0, 2, 3, 1)),
+    (( 0, 1, 0), (2, 6, 7, 3)),
+    (( 0,-1, 0), (0, 1, 5, 4)),
+    (( 1, 0, 0), (1, 3, 7, 5)),
+    ((-1, 0, 0), (0, 4, 6, 2))];
+  for auto (normal, face) <- faces {
+    static for int i <- 0..4 {
+      Vertices ~= (vec3f vertices[face[i]], vec3f normal);
+    }
+  }
+  
+  using mode GL {
+    GenBuffers( 1, &gVBO);
+    ARRAY_BUFFER.BindBuffer gVBO;
+    ARRAY_BUFFER.BufferData((ubyte[]: Vertices[]).(length, ptr), STATIC_DRAW);
+
+    EnableClientState VERTEX_ARRAY;
+    EnableClientState NORMAL_ARRAY;
+    
+    auto size = size-of type-of Vertices[0];
+    
+    VertexPointer (3, FLOAT, size, null);  
+    NormalPointer (FLOAT, size, void*: 16);
+    MatrixMode MODELVIEW;
+  }
+  return true;
+}
+
+uint xorRand() {
+  seed xor= seed << 13;
+  seed xor= seed >> 17;
+  seed xor= seed << 5;
+  return seed;
+}
+
+void movPts(double secs) {
+  for ref pt <- Pts[minPt .. $] using pt if alive {
+    pos += motion * secs;
+    motion += wind * 1 / R;
+    motion.y -= grav * secs;
+    Life -= secs;
+    if (Life <= 0) alive = false;
+  }
+}
+
+void spwnPts(double secs) {
+  uint num = int:(secs * POINTS_PER_SEC);
+  for auto i <- 0..num {
+    using Pt pt {
+      pos = vec3d(
+        0 + double:(xorRand() % START_RANGE) - START_RANGE / 2,
+        START_Y,
+        START_DEPTH + double:(xorRand() % START_RANGE) - START_RANGE / 2
+      );
+      motion = vec3d((xorRand() % MAX_INIT_VEL) x 3);
+      R = double:(xorRand() % (MAX_SCALE * 100)) / 200;
+      Life = double:(xorRand() % MAX_LIFE) / 1000;
+      alive = true;
+      Pts ~= that;
+    }
+  }
+}
+
+void doWind() {
+  alias windComponent = (double:(xorRand() % WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE / 2000) * frameDur;
+  wind += vec3d(windComponent x 3);
+  for ref d <- wind {
+    if (abs d > MAX_WIND) d *= -0.5;
+  }
+}
+
+void checkColls() {
+  alias
+    MIN = (MIN_X, MIN_Y, MIN_DEPTH),
+    MAX = (MAX_X, MAX_Y, MAX_DEPTH);
+  for ref pt <- Pts[minPt .. $] using pt if alive {
+    static for int i <- 0..3 {
+      ref d = pos[i], v = motion[i];
+      alias min = MIN[i], max = MAX[i];
+      if (d < min) {
+        d = min + R;
+        v *= -1.1; // These particles are magic; they accelerate by 10% at every bounce off the bounding box
+      }
+      if (d > max) {
+        d = max - R;
+        v *= -1.1;
+      }
+    }
+  }
+}
+
+void cleanupPtPool() {
+  // ignore all dead points at the start
+  while (minPt < Pts.length && !Pts[minPt].alive)
+    minPt ++;
+}
+
+void main() using mode GLFW using mode GL {
+  Init();
+  WindowHint(SAMPLES, 2);
+  WindowHint(CONTEXT_VERSION_MAJOR, 2);
+  WindowHint(CONTEXT_VERSION_MINOR, 1);
+  auto window = CreateWindow(WIDTH, HEIGHT, TITLE, null, null); 
+  MakeContextCurrent(window);
+  SwapInterval(0);
+  
+  initScene();
+  loadCubeToGPU();
+  while (!WindowShouldClose(window)){
+    initT = GetTime();
+    if (spwnTmr >= SPAWN_INTERVAL) {
+      spwnPts(SPAWN_INTERVAL);
+      spwnTmr -= SPAWN_INTERVAL;
+    }
+    if (cleanupTmr >= double:(MAX_LIFE) / 1000) {
+      cleanupPtPool();
+      cleanupTmr = 0;
+    }
+    doWind();
+    checkColls();
+    movPts(frameDur);
+    
+    Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
+    
+    gpuInitT = GetTime();
+    renderPts();
+    SwapBuffers(window);
+    gpuEndT = GetTime();
+    PollEvents();
+
+    endT = GetTime();
+    frameDur = endT-initT; 
+    spwnTmr += frameDur;
+    cleanupTmr += frameDur;
+    runTmr += frameDur;
+    
+    if (runTmr > MAX_LIFE / 1000) { 
+      frames ~ = frameDur;
+      gpuTimes ~= gpuEndT - gpuInitT;
+    }
+    
+    if (runTmr >= RUNNING_TIME) {
+      template sum(T) { double sum(T t) {
+        double s = 0;
+        for auto v <- t s += v;
+        return s;
+      }}
+      double frameTimeMean = sum frames / frames.length;
+      printf("Average framerate was: %f frames per second.\n", 1 / frameTimeMean);
+
+      double gpuTimeMean = sum gpuTimes / gpuTimes.length;
+      printf("Average cpu time was- %f seconds per frame.\n", frameTimeMean - gpuTimeMean);
+      
+      double sumDiffs = sum for x in frames map ((1 / x)-(1 / frameTimeMean))^2;
+      
+      double variance = sumDiffs / frames.length;
+      double sd = sqrt variance;
+      printf("The standard deviation was: %f frames per second.\n", sd);
+      if (PRINT_FRAMES == 1){
+        printf("--:");
+        for auto frame <- frames {
+          printf("%f",1 / frame);
+          printf(",");
+        }
+        printf(".--");
+      }    
+
+      break;
+    } 
+  }
+  DestroyWindow(window);
+  Terminate();
+}
+
+void initScene() using mode GL {
+  Enable DEPTH_TEST;
+  Enable LIGHTING;
+
+  ClearColor (0.1, 0.1, 0.6, 1.0);
+  ClearDepth 1;
+  DepthFunc LEQUAL;
+  
+  using LIGHT0 {
+    // cast to float* (take address of (declare anonymous variable initialized with (ambient)))
+    Lightfv (AMBIENT, float*: & auto=ambient);
+    Lightfv (DIFFUSE, float*: & auto=diffuse);
+    Lightfv (POSITION, lightPos.ptr);
+    Enable;
+  }
+
+  Viewport (0, 0, WIDTH, HEIGHT);
+  MatrixMode PROJECTION;
+  LoadIdentity;
+  Frustum (-1, 1, -1, 1, 1.0, 1000.0);
+  Rotatef (20, 1, 0, 0);
+  MatrixMode MODELVIEW;
+  LoadIdentity;
+  PushMatrix;
+
+  return;
+}
+
+void renderPts() using mode GL {
+  for ref pt <- Pts if pt.alive {
+    PopMatrix;
+    PushMatrix;
+    Translated pt.pos.(x, y, -z);
+    Scaled pt.(R * 2, R * 2, R * 2);
+    DrawArrays (QUADS, 0, 24);  
+  }
+}

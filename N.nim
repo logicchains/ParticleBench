@@ -1,4 +1,4 @@
-import opengl, glfw/glfw, math, unsigned, strutils
+import opengl, glfw/glfw, math, unsigned, strutils, sequtils
 
 from glfw/wrapper import getTime
 

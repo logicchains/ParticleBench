@@ -66,13 +66,13 @@ var
 proc `[]`(pts: var PPts, key: int): var TPt = pts.pool[key]
 proc `[]=`(pts: var PPts, key: int, val: TPt) = pts.pool[key] = val
 
-proc toGlVec(a: Array[3, int]) : array[TCoord, GLfloat] = 
-  return [GlFloat(a[x.ord]), GlFloat(a[y.ord]), GlFloat(a[z.ord])]
+converter toGlVec(a: Array[3, int]) : array[TCoord, GLfloat] = 
+  return [a[x.ord].GlFloat, a[y.ord].GlFloat, a[z.ord].GlFloat]
 
 proc newVertexGroup(normal: Array[3, int], pos: varargs[Array[3, int]]) =
   var curVertex {.global.} = 0
   for p in pos:
-    vertices[curVertex] = TVertex(pos: toGlVec(p),normal: toGlVec(normal))
+    vertices[curVertex] = TVertex(pos: p, normal: normal)
     curVertex.inc
 
 proc xorRand: uint32 =
@@ -259,10 +259,10 @@ proc main =
     
     GC_step(1000)
     
-  var frameTimeMean = mean(frames)
+  let frameTimeMean = mean(frames)
   echo("Average framerate was: $1 frames per second." % (1/frameTimeMean).formatFloat)
   
-  var gpuTimeMean = mean(gpuTimes)
+  let gpuTimeMean = mean(gpuTimes)
   echo("Average cpu time was- $1 seconds per frame." %
        formatFloat(frameTimeMean - gpuTimeMean))
   

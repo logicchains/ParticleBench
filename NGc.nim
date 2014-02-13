@@ -35,7 +35,7 @@ const
   StartY = Max[y]
   StartDepth = (Min[z] + (Min[z]+Max[z])/2)
 
-  gravity = 50'f64 
+  Gravity = 50'f64 
   WindChange = 2000                     # The maximum change in windspeed per second, in milliseconds
   MaxWind = 3                           # Maximum windspeed in seconds before wind is reversed at half speed
   SpawnInterval = 0.01                  # How often particles are spawned, in seconds
@@ -90,7 +90,7 @@ proc move(pts: var PPts, secs) =
     for c in TCoord:
       pts[i].p[c] += pts[i].v[c] * secs
       pts[i].v[c] += wind[c] * 1 / pts[i].r  # The effect of the wind on a particle is 
-    pts[i].v[y] -= gravity * secs            # inversely proportional to its radius.
+    pts[i].v[y] -= Gravity * secs            # inversely proportional to its radius.
     pts[i].life -= secs
     
     if pts[i].life <= 0:
@@ -100,13 +100,13 @@ proc spawn(pts: var PPts, secs: float64) =
   let num = secs * PointsPerSec
   for i in 0 .. <num.int:
     pts[pts.high] = TPt(
-      p: [0 + float64(xorRand() mod START_RANGE) - START_RANGE/2,
+      p: [0 + float64(xorRand() mod StartRange) - StartRange/2,
         startY,
-        startDepth + float64(xorRand() mod START_RANGE) - START_RANGE/2],
+        startDepth + float64(xorRand() mod StartRange) - StartRange/2],
       v: [float64(xorRand() mod MaxInitVel),
         float64(xorRand() mod MaxInitVel),
         float64(xorRand() mod MaxInitVel)],
-      r: float64(xorRand() mod (MAX_SCALE*100)) / 200,
+      r: float64(xorRand() mod (MaxScale*100)) / 200,
       life: float64(xorRand() mod MaxLife) / 1000,
       bis: true
     )
@@ -114,8 +114,8 @@ proc spawn(pts: var PPts, secs: float64) =
 
 proc doWind(secs: float64) =
   for c in TCoord:
-    wind[c] += (float64(xorRand() mod WIND_CHANGE)/WIND_CHANGE - WIND_CHANGE/2000) * secs
-    if abs(wind[c]) > MAX_WIND:
+    wind[c] += (float64(xorRand() mod WindChange)/WindChange - WindChange/2000) * secs
+    if abs(wind[c]) > MaxWind:
       wind[c] *= -0.5
 
 proc checkColls(pts: var PPts) =
@@ -150,7 +150,7 @@ proc initScene =
   glLightfv(GL_LIGHT0, GL_POSITION, addr lightPos[0])
   glEnable(GL_LIGHT0)
 
-  glViewport(0, 0, WIDTH, HEIGHT)
+  glViewport(0, 0, Width, Height)
   glMatrixMode(GL_PROJECTION)
   glLoadIdentity()
   glFrustum(-1, 1, -1, 1, 1.0, 1000.0)
@@ -171,7 +171,7 @@ proc loadCubeToGPU: bool =
 
   glGenBuffers(1, addr gVBO)
   glBindBuffer(GL_ARRAY_BUFFER, gVBO)
-  glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(NUM_VERTICES * sizeof(TVertex)), addr vertices[0], GL_STATIC_DRAW)
+  glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(NumVertices * sizeof(TVertex)), addr vertices[0], GL_STATIC_DRAW)
 
   glEnableClientState(GL_VERTEX_ARRAY)
   glEnableClientState(GL_NORMAL_ARRAY)
@@ -198,7 +198,7 @@ proc render(pts: var PPts) =
     glTranslatef(pt.p[x], pt.p[y], -(pt.p[z]))
     glScalef(pt.R * 2, pt.R * 2, pt.R * 2)
     glColor4f(0.7, 0.9, 0.2, 1)
-    glDrawArrays(GL_QUADS, 0, NUM_VERTICES)
+    glDrawArrays(GL_QUADS, 0, NumVertices)
 
 proc main =
   GC_disable()
@@ -226,11 +226,11 @@ proc main =
     pts.move(frameDur)
     doWind(frameDur)
     
-    if (spwnTmr >= SPAWN_INTERVAL):
-      pts.spawn(SPAWN_INTERVAL)
-      spwnTmr -= SPAWN_INTERVAL
+    if (spwnTmr >= SpawnInterval):
+      pts.spawn(SpawnInterval)
+      spwnTmr -= SpawnInterval
 
-    if (cleanupTmr >= MAX_LIFE/1000):
+    if (cleanupTmr >= MaxLife/1000):
       pts.cleanupPtPool()
       cleanupTmr = 0
     
@@ -250,12 +250,12 @@ proc main =
     cleanupTmr += frameDur
     runTmr += frameDur
     
-    if (runTmr > MAX_LIFE/1000):    # Start collecting framerate data and profiling after a 
+    if (runTmr > MaxLife/1000):    # Start collecting framerate data and profiling after a 
       frames[curFrame] = frameDur   # full MaxLife worth of particles have been spawned.
       gpuTimes[curFrame] = gpuEndT - gpuInitT
       curFrame += 1
     
-    if (runTmr >= RUNNING_TIME):  # Animation complete 
+    if (runTmr >= RunningTime):  # Animation complete 
       break
     
     GC_step(1000)
@@ -281,7 +281,7 @@ proc main =
   var sd = sqrt(variance)
   echo("The standard deviation was: $1 frames per second." % sd.formatFloat)
   
-  when PRINT_FRAMES:
+  when PrintFrames:
     stdout.write("--:")
     for i in 0 .. <curFrame:
       stdout.write(formatFloat(1/frames[i], precision=6) & ",")

@@ -55,9 +55,6 @@ var
   wind: array[TCoord, float64] = [0.0, 0.0, 0.0]  # Wind speed. 
   gVBO: GLuint = 0
   pts = PPts(low: 0, high: 0)
-  frames: array[RunningTime * 1000, float64]    # Length of each frame
-  gpuTimes: array[RunningTime * 1000, float64]  # Cpu time spent before swapping buffers for each frame
-
 
   
 proc `[]`(pts: var PPts, key: int): var TPt = pts.pool[key]
@@ -202,13 +199,15 @@ proc main =
     window = newWnd((Width.positive, Height.positive), Title,
         hints=initHints(nMultiSamples=2, GL_API=initGL_API(version=glv21)))
     
-    initT, endT = 0.0        # Reused variables for timing frames
+    initT = 0.0              # Reused variables for timing frames
     gpuInitT, gpuEndT = 0.0  # Reused variables for timing gpu use
     frameDur = 0.0           # Reused variable for storing the duration of the last frame
     spwnTmr = 0.0            # Timer for particle spawning
     cleanupTmr = 0.0         # Timer for cleaning up the particle array
     runTmr = 0.0             # Timer of total running time
-    curFrame = 0                                  # The current number of frames that have elapsed
+    
+    frames = newSeq[float]()    # Length of each frame
+    gpuTimes = newSeq[float]()  # Cpu time spent before swapping buffers for each frame
     
   window.makeContextCurrent()
   swapInterval(0)
@@ -239,46 +238,33 @@ proc main =
     gpuEndT = getTime()
     pollEvents()
 
-    endT = getTime()
-    frameDur = endT-initT  # Calculate the length of the previous frame
+    frameDur = getTime() - initT  # Calculate the length of the previous frame
     spwnTmr += frameDur
     cleanupTmr += frameDur
     runTmr += frameDur
     
     if (runTmr > MaxLife/1000):    # Start collecting framerate data and profiling after a 
-      frames[curFrame] = frameDur   # full MaxLife worth of particles have been spawned.
-      gpuTimes[curFrame] = gpuEndT - gpuInitT
-      curFrame += 1
+      frames.add(frameDur)   # full MaxLife worth of particles have been spawned.
+      gpuTimes.add(gpuEndT - gpuInitT)
     
     if (runTmr >= RunningTime):  # Animation complete 
       break
       
-  var sum = 0'f64
-  for i in 0 .. <curFrame:
-    sum += frames[i]
-  
-  var frameTimeMean = sum / curFrame.float64
+  var frameTimeMean = mean(frames)
   echo("Average framerate was: $1 frames per second." % (1/frameTimeMean).formatFloat)
   
-  sum = 0
-  for i in 0 .. <curFrame:
-    sum += gpuTimes[i]
-  var gpuTimeMean = sum / curFrame.float64
+  var gpuTimeMean = mean(gpuTimes)
   echo("Average cpu time was- $1 seconds per frame." %
        formatFloat(frameTimeMean - gpuTimeMean))
   
-  var sumDiffs = 0.0
-  for i in 0 .. <curFrame:
-    sumDiffs += pow((1/frames[i])-(1/frameTimeMean), 2)
-  
-  var variance = sumDiffs / curFrame.float64
-  var sd = sqrt(variance)
+  let sumDiffs = foldl(frames, a + pow((1/b)-(1/frameTimeMean), 2))
+  let sd = sqrt(sumDiffs / frames.len.float64)
   echo("The standard deviation was: $1 frames per second." % sd.formatFloat)
   
   when PrintFrames:
     stdout.write("--:")
-    for i in 0 .. <curFrame:
-      stdout.write(formatFloat(1/frames[i], precision=6) & ",")
+    for f in frames:
+      stdout.write(formatFloat(1/f, precision=6) & ",")
     
     stdout.write(".--\n") 
     

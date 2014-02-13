@@ -23,7 +23,7 @@ const
 
   MaxLife = 5000                        # Maximum particle lifetime in milliseconds
   PointsPerSec = 2000                   # Particles created per second  
-  RunningTime = (MaxLife div 1000) * 5  # The total running time of the animation, in ms
+  RunningTime = (MaxLife div 1000) * 4  # The total running time of the animation, in ms
   MaxPts = RunningTime * PointsPerSec   # The size of the particle pool
   MaxInitVel = 7                        # The maximum initial speed of a newly created
   MaxScale = 4                          # The maximum scale of a particle
@@ -34,7 +34,8 @@ const
   StartRange = 15  # Twice the maximum distance a particle may be spawned from the start point
   StartY = Max[y]
   StartDepth = (Min[z] + (Min[z]+Max[z])/2)
- 
+
+  gravity = 50.0'f64 
   WindChange = 2000                     # The maximum change in windspeed per second, in milliseconds
   MaxWind = 3                           # Maximum windspeed in seconds before wind is reversed at half speed
   SpawnInterval = 0.01                  # How often particles are spawned, in seconds
@@ -52,7 +53,6 @@ var
               
   vertices: array[NumVertices, TVertex]  
   wind: array[TCoord, float64] = [0.0, 0.0, 0.0]  # Wind speed. 
-  gravity = 0.5'f64
   gVBO: GLuint = 0
   pts = PPts(low: 0, high: 0)
   frames: array[RunningTime * 1000, float64]    # Length of each frame
@@ -79,14 +79,14 @@ proc xorRand: uint32 =
   seed = seed xor (seed shl 5)
   return seed
 
-proc move(pts: var PPts, secs, gravity: float64) =
+proc move(pts: var PPts, secs) =
   for i in pts.low .. pts.high:
     if not pts[i].bis:
       continue
     for c in TCoord:
       pts[i].p[c] += pts[i].v[c] * secs
       pts[i].v[c] += wind[c] * 1 / pts[i].r  # The effect of the wind on a particle is 
-    pts[i].v[y] -= gravity                           # inversely proportional to its radius.
+    pts[i].v[y] -= gravity * secs            # inversely proportional to its radius.
     pts[i].life -= secs
     
     if pts[i].life <= 0:
@@ -218,7 +218,7 @@ proc main =
   
   while not shouldClose(window):
     initT = getTime()
-    pts.move(frameDur, gravity)
+    pts.move(frameDur)
     doWind(frameDur)
     
     if (spwnTmr >= SPAWN_INTERVAL):

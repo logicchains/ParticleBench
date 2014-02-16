@@ -67,7 +67,7 @@ proc `[]`(pts: var PPts, key: int): var TPt = pts.pool[key]
 proc `[]=`(pts: var PPts, key: int, val: TPt) = pts.pool[key] = val
 
 converter toGlVec(a: Array[3, int]) : array[TCoord, GLfloat] = 
-  return [a[x.ord].GlFloat, a[y.ord].GlFloat, a[z.ord].GlFloat]
+  [a[x.ord].GlFloat, a[y.ord].GlFloat, a[z.ord].GlFloat]
 
 proc newVertexGroup(normal: Array[3, int], pos: varargs[Array[3, int]]) =
   var curVertex {.global.} = 0

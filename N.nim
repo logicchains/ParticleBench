@@ -82,7 +82,7 @@ proc move(pts: var PPts, secs) =
       continue
     for c in TCoord:
       pts[i].p[c] += pts[i].v[c] * secs
-      pts[i].v[c] += wind[c] * 1 / pts[i].r
+      pts[i].v[c] += wind[c] / pts[i].r
     pts[i].v[y] -= Gravity * secs
     pts[i].life -= secs
     

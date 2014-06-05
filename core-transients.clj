@@ -25,7 +25,7 @@
 
 (def ^:const ^long POINTS_PER_SEC 2000)
 (def ^:const ^double MAX_INIT_VEL 7.0)
-(def ^:const ^long MAX_LIFE 5)
+(def ^:const ^long MAX_LIFE 4)
 (def ^:const ^double MAX_SCALE 4.0)
 
 (def ^:const ^double WIND_CHANGE 2.0)
@@ -47,8 +47,8 @@
 (defrecord timers [^double init-t ^double end-t ^double gpu-init-t ^double gpu-end-t
                    ^double frame-dur ^double run-tmr ^double spwn-tmr])
   
-(defrecord pt [^double x ^double y ^double z ^double vx ^double vy ^double vz
-               ^double R ^double life ^boolean is])
+(deftype pt [^double x ^double y ^double z ^double vx ^double vy ^double vz
+             ^double R ^double life ^boolean is])
 
 (defrecord state [^environ env ^timers tmrs ^clojure.lang.PersistentVector pts ^int cur-frame])
 
@@ -59,8 +59,8 @@
 (defn render-pt [^pt apt]
                    (GL11/glPopMatrix)
                    (GL11/glPushMatrix)
-                   (GL11/glTranslatef (double (:x apt)) (double (:y apt)) (double (- 0 (:z apt))) )
-                   (GL11/glScalef (* (double (:R apt)) (double 2.0)) (* (double (:R apt)) (double 2.0)) (* (double (:R apt)) (double 2.0)) )
+                   (GL11/glTranslatef (double (.x apt)) (double (.y apt)) (double (- 0 (.z apt))) )
+                   (GL11/glScalef (* (double (.R apt)) (double 2.0)) (* (double (.R apt)) (double 2.0)) (* (double (.R apt)) (double 2.0)) )
                    (GL11/glDrawArrays GL11/GL_QUADS (int 0) (int 24))
                    apt)
 
@@ -88,15 +88,15 @@
 
 (defn mov-pt [^double secs ^environ env ^pt apt]
     (->pt
-    (+ ^double (:x apt) ^double (* ^double (:vx apt) secs)) 
-    (- ^double (+ (:y apt) ^double (* ^double (:vy apt) secs) ) (* grav secs))
-    (+ ^double (:z apt) ^double (* ^double (:vz apt) secs) )
-    (+ ^double (:vx apt) ^double (/ ^double (:windX env) ^double (:R apt)))
-    (+ ^double (:vy apt) ^double (/ ^double (:windY env) ^double (:R apt)))
-    (+ ^double (:vz apt) ^double (/ ^double (:windZ env) ^double (:R apt)))
-    ^double (:R apt)
-    (- ^double (:life apt) secs)
-    (if (< (double 0.0) ^double (:life apt)) false true )))
+    (+ ^double (.x apt) ^double (* ^double (.vx apt) secs)) 
+    (- ^double (+ (.y apt) ^double (* ^double (.vy apt) secs) ) (* grav secs))
+    (+ ^double (.z apt) ^double (* ^double (.vz apt) secs) )
+    (+ ^double (.vx apt) ^double (/ ^double (.windX env) ^double (.R apt)))
+    (+ ^double (.vy apt) ^double (/ ^double (.windY env) ^double (.R apt)))
+    (+ ^double (.vz apt) ^double (/ ^double (.windZ env) ^double (.R apt)))
+    ^double (.R apt)
+    (- ^double (.life apt) secs)
+    (if (> (double 0.0) ^double (.life apt)) false true )))
 
 (defn mov-pts [^double secs ^state state]
   (let [^clojure.lang.PersistentVector pts (:pts state) ^environ env (:env state) ^clojure.lang.PersistentVector t-pts (transient pts)]
@@ -104,28 +104,28 @@
       (assoc! t-pts i ^pt (mov-pt secs env (nth pts i))))           
     (assoc state :pts (persistent! t-pts)))) 
 
-(defn bind-pt [apt]
-  (let [x (if (< (:x apt) MIN_X) 
-            (+ MIN_X (:R apt))
-               (if (> (:x apt) MAX_X)
-                 (- MAX_X (:R apt)) (:x apt)))
-        y (if (< (:y apt) MIN_Y) 
-            (+ MIN_Y (:R apt))
-               (if (> (:y apt) MAX_Y)
-                 (- MAX_Y (:R apt)) (:y apt)))
-        z (if (< (:z apt) MIN_DEPTH) 
-            (+ MIN_DEPTH (:R apt))
-               (if (> (:z apt) MAX_DEPTH)
-                 (- MAX_DEPTH (:R apt)) (:z apt)))
-        vx (if (or (< (:x apt) MIN_X) (> (:x apt) MAX_X)) (* (:vx apt) -1.1) (:vx apt))
-        vy (if (or (< (:y apt) MIN_Y) (> (:y apt) MAX_Y)) (* (:vy apt) -1.1) (:vy apt))
-        vz (if (or (< (:z apt) MIN_DEPTH) (> (:z apt) MAX_DEPTH)) (* (:vz apt) -1.1) (:vz apt))]
-    (->pt x y z vx vy vz (:R apt) (:life apt) (:is apt))))
+(defn bind-pt [^pt apt]
+  (let [x (if (< (.x apt) MIN_X) 
+            (+ MIN_X (.R apt))
+               (if (> (.x apt) MAX_X)
+                 (- MAX_X (.R apt)) (.x apt)))
+        y (if (< (.y apt) MIN_Y) 
+            (+ MIN_Y (.R apt))
+               (if (> (.y apt) MAX_Y)
+                 (- MAX_Y (.R apt)) (.y apt)))
+        z (if (< (.z apt) MIN_DEPTH) 
+            (+ MIN_DEPTH (.R apt))
+               (if (> (.z apt) MAX_DEPTH)
+                 (- MAX_DEPTH (.R apt)) (.z apt)))
+        vx (if (or (< (.x apt) MIN_X) (> (.x apt) MAX_X)) (* (.vx apt) -1.1) (.vx apt))
+        vy (if (or (< (.y apt) MIN_Y) (> (.y apt) MAX_Y)) (* (.vy apt) -1.1) (.vy apt))
+        vz (if (or (< (.z apt) MIN_DEPTH) (> (.z apt) MAX_DEPTH)) (* (.vz apt) -1.1) (.vz apt))]
+    (->pt x y z vx vy vz (.R apt) (.life apt) (.is apt))))
 
 (defn check-coll [^pt apt]
-  (if (or (< (:x apt) MIN_X) (> (:x apt) MAX_X)
-          (< (:y apt) MIN_Y) (> (:y apt) MAX_Y)
-          (< (:z apt) MIN_DEPTH) (> (:z apt) MAX_DEPTH))
+  (if (or (< (.x apt) MIN_X) (> (.x apt) MAX_X)
+          (< (.y apt) MIN_Y) (> (.y apt) MAX_Y)
+          (< (.z apt) MIN_DEPTH) (> (.z apt) MAX_DEPTH))
     (bind-pt apt)
     apt))
 
@@ -226,16 +226,14 @@
 
 (defn filter-dead [^state state]
   (let [pts (:pts state)]
-    (assoc state :pts (filter (fn [x] (:is x))
-                              pts))))
+    (assoc state :pts (vec (filter (fn [^pt x] (.is x))
+                                   pts)))))
 
 (defn main-loop [^state state prev-frame-length] 
   (let [init-t (System/currentTimeMillis) ^timers tmrs (:tmrs state)]
     (GL11/glClear (bit-or GL11/GL_COLOR_BUFFER_BIT GL11/GL_DEPTH_BUFFER_BIT))
-    ;(let [^state state (->> (spwn-pts prev-frame-length state) (mov-pts prev-frame-length) (check-colls) (render-pts))]
-    (let [^state state (->> (spwn-pts prev-frame-length state) (mov-pts prev-frame-length) (check-colls) (render-pts))]
+    (let [^state state (->> (spwn-pts prev-frame-length state) (mov-pts prev-frame-length) (filter-dead) (check-colls) (render-pts))]
       (let [gpu-init-t (System/currentTimeMillis)]
-        (render-pts (:pts state))
         (let [gpu-end-t (System/currentTimeMillis)
               end-t (System/currentTimeMillis)
               frame-dur (/ (double ^long (- end-t init-t)) (double 1000.0))
